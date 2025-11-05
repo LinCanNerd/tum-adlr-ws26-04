@@ -35,7 +35,8 @@ if __name__ == "__main__":
     if not cfg["basic"]["checkpoint"] or (cfg["basic"]["checkpoint"] == "-1") or (cfg["basic"]["checkpoint"] == -1):
         cfg["basic"]["checkpoint"] = sorted(glob.glob(os.path.join("logs", "**/*.pth"), recursive=True), key=os.path.getmtime)[-1]
     print("Loading model from {}".format(cfg["basic"]["checkpoint"]))
-    model = torch.jit.load(cfg["basic"]["checkpoint"], map_location="cpu")
+    checkpoint = torch.load(cfg["basic"]["checkpoint"], map_location="cpu")
+    model.load_state_dict(checkpoint["model"])
     model.eval() # Set the model to evaluation mode
 
     mj_model = mujoco.MjModel.from_xml_path(cfg["asset"]["mujoco_file"])
@@ -115,7 +116,7 @@ if __name__ == "__main__":
                 obs[11:32] = (dof_pos - default_dof_pos) * cfg["normalization"]["dof_pos"] # adding arms
                 obs[32:53] = dof_vel * cfg["normalization"]["dof_vel"]
                 obs[53:74] = actions
-                dist = model(torch.tensor(obs).unsqueeze(0))
+                dist = model.act(torch.tensor(obs).unsqueeze(0))
                 if hasattr(dist, "loc"):
                     actions[:] = dist.loc.detach().numpy()
                 else:
