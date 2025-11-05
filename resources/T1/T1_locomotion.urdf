@@ -73,6 +73,16 @@
           rgba="0.4 0.4 0.4 0.3" />
       </material>
     </visual>
+    <collision>
+      <origin
+        xyz="0 0 0.03"
+        rpy="0 0 0" />
+      <geometry>
+        <capsule
+          radius="0.03"
+          length="0.06185" />
+      </geometry>
+    </collision>
   </link>
   <joint
     name="AAHead_yaw"
@@ -122,6 +132,15 @@
           rgba="0.4 0.4 0.4 0.3" />
       </material>
     </visual>
+    <collision>
+      <origin
+        xyz="0 0 0.05"
+        rpy="0 0 0" />
+      <geometry>
+        <sphere
+          radius="0.06" />
+      </geometry>
+    </collision>
   </link>
   <joint
     name="Head_pitch"
@@ -171,6 +190,16 @@
           rgba="0.76 0.76 0.76 0.2" />
       </material>
     </visual>
+    <collision>
+      <origin
+        xyz="0 0.0235 0"
+        rpy="1.5708 0 0" />
+      <geometry>
+        <capsule
+          radius="0.04"
+          length="0.047" />
+      </geometry>
+    </collision>
   </link>
   <joint
     name="Left_Shoulder_Pitch"
@@ -220,6 +249,16 @@
           rgba="0.4 0.4 0.4 0.3" />
       </material>
     </visual>
+    <collision>
+      <origin
+        xyz="0 0.03025 0"
+        rpy="1.5708 0 0" />
+      <geometry>
+        <capsule
+          radius="0.04"
+          length="0.0605" />
+      </geometry>
+    </collision>
   </link>
   <joint
     name="Left_Shoulder_Roll"
@@ -269,6 +308,16 @@
           rgba="0.4 0.4 0.4 0.3" />
       </material>
     </visual>
+    <collision>
+      <origin
+        xyz="0 0.07355 0"
+        rpy="1.5708 0 0" />
+      <geometry>
+        <capsule
+          radius="0.04"
+          length="0.1471" />
+      </geometry>
+    </collision>
   </link>
   <joint
     name="Left_Elbow_Pitch"
@@ -318,6 +367,15 @@
           rgba="0.4 0.4 0.4 0.3" />
       </material>
     </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <sphere
+          radius="0.04" />
+      </geometry>
+    </collision>
   </link>
   <joint
     name="Left_Elbow_Yaw"
@@ -367,6 +425,16 @@
           rgba="0.76 0.76 0.76 0.2" />
       </material>
     </visual>
+    <collision>
+      <origin
+        xyz="0 -0.0235 0"
+        rpy="1.5708 0 0" />
+      <geometry>
+        <capsule
+          radius="0.04"
+          length="0.047" />
+      </geometry>
+    </collision>
   </link>
   <joint
     name="Right_Shoulder_Pitch"
@@ -416,6 +484,16 @@
           rgba="0.4 0.4 0.4 0.3" />
       </material>
     </visual>
+    <collision>
+      <origin
+        xyz="0 -0.03025 0"
+        rpy="1.5708 0 0" />
+      <geometry>
+        <capsule
+          radius="0.04"
+          length="0.0605" />
+      </geometry>
+    </collision>
   </link>
   <joint
     name="Right_Shoulder_Roll"
@@ -465,6 +543,16 @@
           rgba="0.4 0.4 0.4 0.3" />
       </material>
     </visual>
+    <collision>
+      <origin
+        xyz="0 -0.07355 0"
+        rpy="1.5708 0 0" />
+      <geometry>
+        <capsule
+          radius="0.04"
+          length="0.1471" />
+      </geometry>
+    </collision>
   </link>
   <joint
     name="Right_Elbow_Pitch"
@@ -514,6 +602,15 @@ xyz="-0.000108 -0.109573 0.000591"
           rgba="0.4 0.4 0.4 0.3" />
       </material>
     </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <sphere
+          radius="0.04" />
+      </geometry>
+    </collision>
   </link>
   <joint
     name="Right_Elbow_Yaw"
@@ -563,6 +660,16 @@ xyz="-0.000108 -0.109573 0.000591"
           rgba="0.4 0.4 0.4 0.3" />
       </material>
     </visual>
+    <collision>
+      <origin
+        xyz="0.0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <cylinder
+          radius="0.11"
+          length="0.1" />
+      </geometry>
+    </collision>
   </link>
   <joint
     name="Waist"
@@ -612,6 +719,16 @@ xyz="-0.000108 -0.109573 0.000591"
           rgba="0.76 0.76 0.76 0.2" />
       </material>
     </visual>
+    <collision>
+      <origin
+        xyz="0 0 -0.01"
+        rpy="0 1.5708 0" />
+      <geometry>
+        <capsule
+          radius="0.04"
+          length="0.02" />
+      </geometry>
+    </collision>
   </link>
   <joint
     name="Left_Hip_Pitch"
@@ -661,6 +778,16 @@ xyz="-0.000108 -0.109573 0.000591"
           rgba="0.4 0.4 0.4 0.3" />
       </material>
     </visual>
+    <collision>
+      <origin
+        xyz="0 0 -0.0409"
+        rpy="0 0 0" />
+      <geometry>
+        <capsule
+          radius="0.04"
+          length="0.081854" />
+      </geometry>
+    </collision>
   </link>
   <joint
     name="Left_Hip_Roll"
@@ -824,6 +951,16 @@ xyz="-0.000108 -0.109573 0.000591"
           rgba="0.4 0.4 0.4 0.3" />
       </material>
     </visual>
+    <collision>
+      <origin
+        xyz="0 0 -0.006"
+        rpy="0 1.5708 0" />
+      <geometry>
+        <capsule
+          radius="0.02"
+          length="0.012" />
+      </geometry>
+    </collision>
   </link>
   <joint
     name="Left_Ankle_Pitch"
@@ -930,6 +1067,16 @@ xyz="-0.000108 -0.109573 0.000591"
           rgba="0.76 0.76 0.76 0.2" />
       </material>
     </visual>
+    <collision>
+      <origin
+        xyz="0 0 -0.01"
+        rpy="0 1.5708 0" />
+      <geometry>
+        <capsule
+          radius="0.04"
+          length="0.02" />
+      </geometry>
+    </collision>
   </link>
   <joint
     name="Right_Hip_Pitch"
@@ -979,6 +1126,16 @@ xyz="-0.000108 -0.109573 0.000591"
           rgba="0.4 0.4 0.4 0.3" />
       </material>
     </visual>
+    <collision>
+      <origin
+        xyz="0 0 -0.0409"
+        rpy="0 0 0" />
+      <geometry>
+        <capsule
+          radius="0.04"
+          length="0.081854" />
+      </geometry>
+    </collision>
   </link>
   <joint
     name="Right_Hip_Roll"
@@ -1142,6 +1299,16 @@ xyz="-0.000108 -0.109573 0.000591"
           rgba="0.4 0.4 0.4 0.3" />
       </material>
     </visual>
+    <collision>
+      <origin
+        xyz="0 0 -0.006"
+        rpy="0 1.5708 0" />
+      <geometry>
+        <capsule
+          radius="0.02"
+          length="0.012" />
+      </geometry>
+    </collision>
   </link>
   <joint
     name="Right_Ankle_Pitch"
