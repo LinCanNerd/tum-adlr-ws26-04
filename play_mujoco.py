@@ -37,7 +37,7 @@ if __name__ == "__main__":
     print("Loading model from {}".format(cfg["basic"]["checkpoint"]))
     checkpoint = torch.load(cfg["basic"]["checkpoint"], map_location="cpu")
     model.load_state_dict(checkpoint["model"])
-    model.eval() # Set the model to evaluation mode
+    model.eval() # Set the model to evaluation mode a
 
     mj_model = mujoco.MjModel.from_xml_path(cfg["asset"]["mujoco_file"])
     mj_model.opt.timestep = cfg["sim"]["dt"]
