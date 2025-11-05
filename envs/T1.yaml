@@ -9,9 +9,9 @@ basic:
 
 env:
   num_envs: 4096
-  num_observations: 62 # added more constraints
+  num_observations: 74 # it was 47, I changed it to add more joints
   num_privileged_obs: 14
-  num_actions: 17 # less dof
+  num_actions: 21 # it was 12
   env_spacing: 1.  # not used with plane terrain
 
 runner:
@@ -92,6 +92,8 @@ init_state:
     "Ankle_Pitch": -0.25,
     "Waist": 0.0,
     "Shoulder_Pitch": 0.0,
+    "Shoulder_Roll": 0.0,
+    "Elbow_Pitch": 0.0,
     "Elbow_Yaw": 0.0,
     "default": 0.} # target angles when action = 0.0
 
