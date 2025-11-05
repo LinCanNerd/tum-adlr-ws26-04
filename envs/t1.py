@@ -71,16 +71,7 @@ class T1(BaseTask):
         # indices        
         self.arm_dof_indices = torch.tensor(self.arm_dof_indices, device=self.device, dtype=torch.long)
         self.leg_dof_indices = torch.tensor(self.leg_dof_indices, device=self.device, dtype=torch.long)
-        self.controlled_dof_indices = []
-        for i in range(self.num_dofs):
-            dof_name = self.dof_names[i]
-            # NOT controlling Shoulder_Roll or Elbow_Pitch
-            if "Shoulder_Roll" not in dof_name and "Elbow_Pitch" not in dof_name:
-                self.controlled_dof_indices.append(i)
-        
-        # This tensor should have 17 indices
-        self.controlled_dof_indices = torch.tensor(self.controlled_dof_indices, device=self.device, dtype=torch.long)
-        
+
         dof_props_asset = self.gym.get_asset_dof_properties(robot_asset)
         self.dof_pos_limits = torch.zeros(self.num_dofs, 2, dtype=torch.float, device=self.device)
         self.dof_vel_limits = torch.zeros(self.num_dofs, dtype=torch.float, device=self.device)
@@ -462,11 +453,7 @@ class T1(BaseTask):
     def step(self, actions):
         # pre physics step
         self.actions[:] = torch.clip(actions, -self.cfg["normalization"]["clip_actions"], self.cfg["normalization"]["clip_actions"])
-        
-         # Start with all 21 DOFs at their default position
-        dof_targets = self.default_dof_pos.clone()
-        # GET specific 17 controlled DOFs
-        dof_targets[:, self.controlled_dof_indices] += self.cfg["control"]["action_scale"] * self.actions
+        dof_targets = self.default_dof_pos + self.cfg["control"]["action_scale"] * self.actions
 
         # perform physics step
         self.torques.zero_()
@@ -606,11 +593,6 @@ class T1(BaseTask):
             [self.cfg["normalization"]["lin_vel"], self.cfg["normalization"]["lin_vel"], self.cfg["normalization"]["ang_vel"]],
             device=self.device,
         )
-
-        # Select only the 17 controlled DOFs to be part of the observation
-        controlled_dof_pos = self.dof_pos[:, self.controlled_dof_indices]
-        controlled_dof_vel = self.dof_vel[:, self.controlled_dof_indices]
-
         self.obs_buf = torch.cat(
             (
                 apply_randomization(self.projected_gravity, self.cfg["noise"].get("gravity")) * self.cfg["normalization"]["gravity"],
@@ -618,10 +600,8 @@ class T1(BaseTask):
                 self.commands[:, :3] * commands_scale,
                 (torch.cos(2 * torch.pi * self.gait_process) * (self.gait_frequency > 1.0e-8).float()).unsqueeze(-1),
                 (torch.sin(2 * torch.pi * self.gait_process) * (self.gait_frequency > 1.0e-8).float()).unsqueeze(-1),
-                # get controlled dof
-                apply_randomization(controlled_dof_pos - self.default_dof_pos[:, self.controlled_dof_indices], self.cfg["noise"].get("dof_pos")) * self.cfg["normalization"]["dof_pos"],
-                apply_randomization(controlled_dof_vel, self.cfg["noise"].get("dof_vel")) * self.cfg["normalization"]["dof_vel"],
-
+                apply_randomization(self.dof_pos - self.default_dof_pos, self.cfg["noise"].get("dof_pos")) * self.cfg["normalization"]["dof_pos"],
+                apply_randomization(self.dof_vel, self.cfg["noise"].get("dof_vel")) * self.cfg["normalization"]["dof_vel"],
                 self.actions,
             ),
             dim=-1,
