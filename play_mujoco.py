@@ -113,10 +113,10 @@ if __name__ == "__main__":
                 obs[8] = ang_vel_yaw * cfg["normalization"]["ang_vel"]
                 obs[9] = np.cos(2 * np.pi * gait_process) * (gait_frequency > 1.0e-8)
                 obs[10] = np.sin(2 * np.pi * gait_process) * (gait_frequency > 1.0e-8)
-                obs[11:28] = (dof_pos - default_dof_pos) * cfg["normalization"]["dof_pos"]
-                obs[28:45] = dof_vel * cfg["normalization"]["dof_vel"]
-                obs[45:62] = actions
-                dist = model(torch.tensor(obs).unsqueeze(0))
+                obs[11:32] = (dof_pos - default_dof_pos) * cfg["normalization"]["dof_pos"]
+                obs[32:53] = dof_vel * cfg["normalization"]["dof_vel"]
+                obs[53:74] = actions
+                dist = model.act(torch.tensor(obs).unsqueeze(0))
                 if hasattr(dist, "loc"):
                     actions[:] = dist.loc.detach().numpy()
                 else:
