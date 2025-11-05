@@ -174,7 +174,7 @@
   </link>
   <joint
     name="Left_Shoulder_Pitch"
-    type="fixed">
+    type="revolute">
     <origin
       xyz="0.0575 0.1063 0.219"
       rpy="0 0.2 0" />
@@ -272,7 +272,7 @@
   </link>
   <joint
     name="Left_Elbow_Pitch"
-    type="fixed">
+    type="revolute">
     <origin
       xyz="0.00025 0.0605 0"
       rpy="0 0 0" />
@@ -370,7 +370,7 @@
   </link>
   <joint
     name="Right_Shoulder_Pitch"
-    type="fixed">
+    type="revolute">
     <origin
       xyz="0.0575 -0.1063 0.219"
       rpy="0 0.2 0" />
@@ -468,7 +468,7 @@
   </link>
   <joint
     name="Right_Elbow_Pitch"
-    type="fixed">
+    type="revolute">
     <origin
       xyz="0.00025 -0.0605 0"
       rpy="0 0 0" />
@@ -566,7 +566,7 @@ xyz="-0.000108 -0.109573 0.000591"
   </link>
   <joint
     name="Waist"
-    type="fixed">
+    type="revolute">
     <origin
       xyz="0.0625 0 -0.1155"
       rpy="0 0 0" />
