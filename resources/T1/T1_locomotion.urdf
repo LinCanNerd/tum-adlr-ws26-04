@@ -223,7 +223,7 @@
   </link>
   <joint
     name="Left_Shoulder_Roll"
-    type="fixed">
+    type="revolute">
     <origin
       xyz="0 0.047 0"
       rpy="-1.35 0 0" />
@@ -321,7 +321,7 @@
   </link>
   <joint
     name="Left_Elbow_Yaw"
-    type="fixed">
+    type="revolute">
     <origin
       xyz="0 0.1471 0"
       rpy="0 0 -0.5" />
@@ -419,7 +419,7 @@
   </link>
   <joint
     name="Right_Shoulder_Roll"
-    type="fixed">
+    type="revolute">
     <origin
       xyz="0 -0.047 0"
       rpy="1.35 0 0" />
@@ -517,7 +517,7 @@ xyz="-0.000108 -0.109573 0.000591"
   </link>
   <joint
     name="Right_Elbow_Yaw"
-    type="fixed">
+    type="revolute">
     <origin
       xyz="0 -0.1471 0"
       rpy="0 0 0.5" />
