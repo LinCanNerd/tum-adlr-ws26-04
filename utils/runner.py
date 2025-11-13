@@ -101,30 +101,38 @@ class Runner:
 
     def train(self):
         self.recorder = Recorder(self.cfg)
-        obs, infos = self.env.reset()
-        obs = obs.to(self.device)
+        obs, rew, done, infos = self.env.reset()
+        obs, rew, done = obs.to(self.device), rew.to(self.device), done.to(self.device)
         privileged_obs = infos["privileged_obs"].to(self.device)
+        stacked_obs = infos["stacked_obs"].to(self.device)
+
         for it in range(self.cfg["basic"]["max_iterations"]):
             # within horizon_length, env.step() is called with same act
             for n in range(self.cfg["runner"]["horizon_length"]):
                 self.buffer.update_data("obses", n, obs)
                 self.buffer.update_data("privileged_obses", n, privileged_obs)
+                self.buffer.update_data("stacked_obses", n, stacked_obs)
+
                 with torch.no_grad():
-                    dist = self.model.act(obs)
+                    dist, embedding = self.model.act(obs, privileged_obs= privileged_obs)
                     act = dist.sample()
+
                 obs, rew, done, infos = self.env.step(act)
                 obs, rew, done = obs.to(self.device), rew.to(self.device), done.to(self.device)
                 privileged_obs = infos["privileged_obs"].to(self.device)
+                stacked_obs = infos["stacked_obs"].to(self.device)
+
                 self.buffer.update_data("actions", n, act)
                 self.buffer.update_data("rewards", n, rew)
                 self.buffer.update_data("dones", n, done)
                 self.buffer.update_data("time_outs", n, infos["time_outs"].to(self.device))
+
                 ep_info = {"reward": rew}
                 ep_info.update(infos["rew_terms"])
                 self.recorder.record_episode_statistics(done, ep_info, it, n == (self.cfg["runner"]["horizon_length"] - 1))
 
             with torch.no_grad():
-                old_dist = self.model.act(self.buffer["obses"])
+                old_dist, embedding = self.model.act(self.buffer["obses"], privileged_obs= privileged_obs)
                 old_actions_log_prob = old_dist.log_prob(self.buffer["actions"]).sum(dim=-1)
 
             mean_value_loss = 0
@@ -148,7 +156,7 @@ class Runner:
                     advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
                 value_loss = F.mse_loss(values, returns)
 
-                dist = self.model.act(self.buffer["obses"])
+                dist, embedding = self.model.act(self.buffer["obses"], privileged_obs= privileged_obs)
                 actions_log_prob = dist.log_prob(self.buffer["actions"]).sum(dim=-1)
                 actor_loss = surrogate_loss(old_actions_log_prob, actions_log_prob, advantages)
 

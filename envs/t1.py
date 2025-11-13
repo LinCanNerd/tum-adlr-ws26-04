@@ -294,9 +294,7 @@ class T1(BaseTask):
     def reset(self):
         """Reset all robots"""
         self._reset_idx(torch.arange(self.num_envs, device=self.device))
-        self._resample_commands()
-        self._compute_observations()
-        return self.obs_buf, self.extras
+        return self.step(torch.zeros(self.num_envs, self.num_actions, device = self.device, require_grad= False))
 
     def _reset_idx(self, env_ids):
         if len(env_ids) == 0:
