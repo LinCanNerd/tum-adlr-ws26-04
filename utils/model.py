@@ -57,3 +57,16 @@ class RMA(torch.nn.Module):
     def est_value(self, obs, privileged_obs):
         critic_input = torch.cat((obs, privileged_obs), dim=-1)
         return self.critic(critic_input).squeeze(-1)
+    
+    def ac_parameters(self):
+        for p in self.critic.parameters():
+            yield p
+        for p in self.actor.parameters():
+            yield p
+        for p in self.privileged_encoder.parameters():
+            yield p
+        yield self.logstd
+
+    def adapt_parameters(self):
+        for p in self.adaptation_module.parameters():
+            yield p
