@@ -56,22 +56,6 @@ class T1(BaseTask):
         self.num_bodies = self.gym.get_asset_rigid_body_count(robot_asset)
         self.dof_names = self.gym.get_asset_dof_names(robot_asset)
 
-        # Get indices for arm and leg joints
-        self.arm_dof_indices = []
-        self.leg_dof_indices = []
-        
-        # We iterate through the DoF names and sort them into two lists
-        for i in range(self.num_dofs):
-            dof_name = self.dof_names[i]
-            if any(name in dof_name for name in ["Shoulder", "Elbow"]):
-                self.arm_dof_indices.append(i)
-            elif any(name in dof_name for name in ["Hip", "Knee", "Ankle", "Waist"]):
-                self.leg_dof_indices.append(i)
-
-        # indices        
-        self.arm_dof_indices = torch.tensor(self.arm_dof_indices, device=self.device, dtype=torch.long)
-        self.leg_dof_indices = torch.tensor(self.leg_dof_indices, device=self.device, dtype=torch.long)
-
         dof_props_asset = self.gym.get_asset_dof_properties(robot_asset)
         self.dof_pos_limits = torch.zeros(self.num_dofs, 2, dtype=torch.float, device=self.device)
         self.dof_vel_limits = torch.zeros(self.num_dofs, dtype=torch.float, device=self.device)
@@ -658,28 +642,23 @@ class T1(BaseTask):
 
     def _reward_torques(self):
         # Penalize torques
-        leg_torques = self.torques[:, self.leg_dof_indices]
-        return torch.sum(torch.square(leg_torques), dim=-1)
+        return torch.sum(torch.square(self.torques), dim=-1)
 
     def _reward_dof_vel(self):
         # Penalize dof velocities
-        leg_dof_vel = self.dof_vel[:, self.leg_dof_indices]
-        return torch.sum(torch.square(leg_dof_vel), dim=-1)
+        return torch.sum(torch.square(self.dof_vel), dim=-1)
 
     def _reward_dof_acc(self):
         # Penalize dof accelerations
-        leg_dof_acc = (self.last_dof_vel[:, self.leg_dof_indices] - self.dof_vel[:, self.leg_dof_indices]) / self.dt
-        return torch.sum(torch.square(leg_dof_acc), dim=-1)
+        return torch.sum(torch.square((self.last_dof_vel - self.dof_vel) / self.dt), dim=-1)
 
     def _reward_root_acc(self):
         # Penalize root accelerations
         return torch.sum(torch.square((self.last_root_vel - self.root_states[:, 7:13]) / self.dt), dim=-1)
 
     def _reward_action_rate(self):
-        # Penalize changes in actions only on the legs and waist
-        leg_actions = self.actions[:, self.leg_dof_indices]
-        last_leg_actions = self.last_actions[:, self.leg_dof_indices]
-        return torch.sum(torch.square(last_leg_actions - leg_actions), dim=-1)
+        # Penalize changes in actions
+        return torch.sum(torch.square(self.last_actions - self.actions), dim=-1)
 
     def _reward_dof_pos_limits(self):
         # Penalize dof positions too close to the limit
@@ -706,17 +685,20 @@ class T1(BaseTask):
             dim=-1,
         )
 
+    def _reward_torque_limits(self):
+        # Penalize torques too close to the limit
+        return torch.sum(
+            (torch.abs(self.torques) - self.torque_limits * self.cfg["rewards"]["soft_torque_limit"]).clip(min=0.0),
+            dim=-1,
+        )
+
     def _reward_torque_tiredness(self):
-        # Penalize torque tiredness only on the legs and waist
-        leg_torques = self.torques[:, self.leg_dof_indices]
-        leg_torque_limits = self.torque_limits[self.leg_dof_indices]
-        return torch.sum(torch.square(leg_torques / leg_torque_limits).clip(max=1.0), dim=-1)
+        # Penalize torque tiredness
+        return torch.sum(torch.square(self.torques / self.torque_limits).clip(max=1.0), dim=-1)
 
     def _reward_power(self):
-        # Penalize power only on the legs and waist
-        leg_torques = self.torques[:, self.leg_dof_indices]
-        leg_dof_vel = self.dof_vel[:, self.leg_dof_indices]
-        return torch.sum((leg_torques * leg_dof_vel).clip(min=0.0), dim=-1)
+        # Penalize power
+        return torch.sum((self.torques * self.dof_vel).clip(min=0.0), dim=-1)
 
     def _reward_feet_slip(self):
         # Penalize feet velocities when contact
