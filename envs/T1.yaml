@@ -259,8 +259,8 @@ randomization:
 
 rewards:
   scales:
-    survival: 0.25
-    tracking_lin_vel_x: 2.0
+    survival: 1.0
+    tracking_lin_vel_x: 1.0
     tracking_lin_vel_y: 1.0
     tracking_ang_vel: 0.1
     base_height: -20.
