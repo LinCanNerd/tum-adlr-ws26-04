@@ -294,9 +294,7 @@ class T1(BaseTask):
     def reset(self):
         """Reset all robots"""
         self._reset_idx(torch.arange(self.num_envs, device=self.device))
-        self._resample_commands()
-        self._compute_observations()
-        return self.obs_buf, self.extras
+        return self.step(torch.zeros(self.num_envs, self.num_actions, device = self.device, require_grad= False))
 
     def _reset_idx(self, env_ids):
         if len(env_ids) == 0:
@@ -643,13 +641,16 @@ class T1(BaseTask):
     def _reward_torques(self):
         # Penalize torques
         return torch.sum(torch.square(self.torques), dim=-1)
+        return torch.sum(torch.square(self.torques), dim=-1)
 
     def _reward_dof_vel(self):
         # Penalize dof velocities
         return torch.sum(torch.square(self.dof_vel), dim=-1)
+        return torch.sum(torch.square(self.dof_vel), dim=-1)
 
     def _reward_dof_acc(self):
         # Penalize dof accelerations
+        return torch.sum(torch.square((self.last_dof_vel - self.dof_vel) / self.dt), dim=-1)
         return torch.sum(torch.square((self.last_dof_vel - self.dof_vel) / self.dt), dim=-1)
 
     def _reward_root_acc(self):
@@ -658,8 +659,9 @@ class T1(BaseTask):
 
     def _reward_action_rate(self):
         # Penalize changes in actions
-        return torch.sum(torch.square(self.last_actions - self.actions), dim=-1)
-
+        return torch.sum(torch.square((self.last_actions - self.actions) / self.dt), dim=-1) \
+               + torch.sum(torch.square((self.actions - 2 * self.last_actions + self.last_last_actions) / self.dt), dim=-1)
+    
     def _reward_dof_pos_limits(self):
         # Penalize dof positions too close to the limit
         lower = self.dof_pos_limits[:, 0] + 0.5 * (1 - self.cfg["rewards"]["soft_dof_pos_limit"]) * (
