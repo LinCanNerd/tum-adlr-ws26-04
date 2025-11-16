@@ -31,7 +31,7 @@ class Runner:
 
         self.device = self.cfg["basic"]["rl_device"]
         self.learning_rate = self.cfg["algorithm"]["learning_rate"]
-        self.model = RMA(self.env.num_actions, self.env.num_obs,self.env.num_stack, self.env.num_privileged_obs, self.cfg["algorithm"["num_embedding"]]).to(self.device)
+        self.model = RMA(self.env.num_actions, self.env.num_obs,self.env.num_stack, self.env.num_privileged_obs, self.cfg["algorithm"]["num_embedding"]).to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
         self._load()
 
