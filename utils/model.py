@@ -31,7 +31,7 @@ class RMA(torch.nn.Module):
             torch.nn.ELU(),
             torch.nn.Linear(128, num_embedding)
         )
-        self.adaption_module = torch.nn.Sequential(
+        self.adaptation_module = torch.nn.Sequential(
             torch.nn.Linear(num_obs + obs_stacking, 1024),
             torch.nn.ELU(),
             torch.nn.Linear(1024, 512),
@@ -46,8 +46,8 @@ class RMA(torch.nn.Module):
     def act(self, obs, privileged_obs = None, stacked_obs = None):
         if privileged_obs is not None:
             embedding = self.privileged_encoder(privileged_obs)
-        if stacked_obs is not None:
-            embedding = self.adaption_module(stacked_obs.flatten(start_dim=-2))
+        elif stacked_obs is not None:
+            embedding = self.adaptation_module(stacked_obs.flatten(start_dim=-2))
         act_input = torch.cat((obs, embedding), dim=-1)
         action_mean = self.actor(act_input)
         action_std = torch.exp(self.logstd).expand_as(action_mean)
