@@ -13,7 +13,7 @@ from utils.model import *
 from utils.buffer import ExperienceBuffer
 from utils.utils import discount_values, surrogate_loss
 from utils.recorder import Recorder
-from utils.wrapper import ObservationHistoryWrapper
+from utils.wrapper import ObservationsWrapper
 from envs import *
 
 
@@ -27,7 +27,7 @@ class Runner:
         self._set_seed()
         task_class = eval(self.cfg["basic"]["task"])
         self.env = task_class(self.cfg)
-        self.env = ObservationHistoryWrapper(self.env, self.cfg["runner"]["num_stack"])
+        self.env = ObservationsWrapper(self.env, self.cfg["runner"]["num_stack"])
 
         self.device = self.cfg["basic"]["rl_device"]
         self.learning_rate = self.cfg["algorithm"]["learning_rate"]

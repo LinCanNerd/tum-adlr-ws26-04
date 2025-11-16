@@ -1,12 +1,12 @@
 import torch
 
 
-class ObservationHistoryWrapper:
+class ObservationsWrapper:
 
     def __init__(self, env, num_stack):
         self.env = env
         self.num_stack = num_stack
-        self.history = torch.zeros(self.env.num_envs, self.num_stack, self.env.num_obs, device = self.env.device)
+        self.stacked_obs = torch.zeros(self.env.num_envs, self.num_stack, self.env.num_obs, device = self.env.device)
 
     def __getattr__(self, name):
         if name.startswith("_"):
