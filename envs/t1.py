@@ -659,8 +659,7 @@ class T1(BaseTask):
 
     def _reward_action_rate(self):
         # Penalize changes in actions
-        return torch.sum(torch.square((self.last_actions - self.actions) / self.dt), dim=-1) \
-               + torch.sum(torch.square((self.actions - 2 * self.last_actions + self.last_last_actions) / self.dt), dim=-1)
+        return torch.sum(torch.square((self.last_actions - self.actions) / self.dt), dim=-1)
     
     def _reward_dof_pos_limits(self):
         # Penalize dof positions too close to the limit
