@@ -132,7 +132,7 @@ class Runner:
                 self.recorder.record_episode_statistics(done, ep_info, it, n == (self.cfg["runner"]["horizon_length"] - 1))
 
             with torch.no_grad():
-                old_dist, embedding = self.model.act(self.buffer["obses"], privileged_obs= privileged_obs)
+                old_dist, embedding = self.model.act(self.buffer["obses"], privileged_obs= self.buffer["privileged_obses"])
                 old_actions_log_prob = old_dist.log_prob(self.buffer["actions"]).sum(dim=-1)
 
             mean_value_loss = 0
@@ -156,7 +156,7 @@ class Runner:
                     advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
                 value_loss = F.mse_loss(values, returns)
 
-                dist, embedding = self.model.act(self.buffer["obses"], privileged_obs= privileged_obs)
+                dist, embedding = self.model.act(self.buffer["obses"], privileged_obs= self.buffer["privileged_obses"])
                 actions_log_prob = dist.log_prob(self.buffer["actions"]).sum(dim=-1)
                 actor_loss = surrogate_loss(old_actions_log_prob, actions_log_prob, advantages)
 
