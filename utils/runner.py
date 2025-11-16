@@ -161,6 +161,7 @@ class Runner:
                 actor_loss = surrogate_loss(old_actions_log_prob, actions_log_prob, advantages)
 
                 bound_loss = torch.clip(dist.loc - 1.0, min=0.0).square().mean() + torch.clip(dist.loc + 1.0, max=0.0).square().mean()
+                embedding_norm_loss = torch.clip(embedding.square().mean(dim=-1) - 1.0, min=0.0).square().mean()
 
                 entropy = dist.entropy().sum(dim=-1)
 
@@ -169,6 +170,7 @@ class Runner:
                     + actor_loss
                     + self.cfg["algorithm"]["bound_coef"] * bound_loss
                     + self.cfg["algorithm"]["entropy_coef"] * entropy.mean()
+                    + self.cfg["algorithm"]["embedding_norm_coef"] * embedding_norm_loss
                 )
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -192,10 +194,12 @@ class Runner:
 
                 mean_value_loss += value_loss.item()
                 mean_actor_loss += actor_loss.item()
+                mean_embedding_norm_loss += embedding_norm_loss.item()
                 mean_bound_loss += bound_loss.item()
                 mean_entropy += entropy.mean()
             mean_value_loss /= self.cfg["runner"]["mini_epochs"]
             mean_actor_loss /= self.cfg["runner"]["mini_epochs"]
+            mean_embedding_norm_loss /= self.cfg["runner"]["mini_epochs"]
             mean_bound_loss /= self.cfg["runner"]["mini_epochs"]
             mean_entropy /= self.cfg["runner"]["mini_epochs"]
             self.recorder.record_statistics(
@@ -203,6 +207,7 @@ class Runner:
                     "value_loss": mean_value_loss,
                     "actor_loss": mean_actor_loss,
                     "bound_loss": mean_bound_loss,
+                    "embedding_norm_loss": mean_embedding_norm_loss,
                     "entropy": mean_entropy,
                     "kl_mean": kl_mean,
                     "lr": self.learning_rate,
