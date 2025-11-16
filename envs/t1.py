@@ -641,16 +641,13 @@ class T1(BaseTask):
     def _reward_torques(self):
         # Penalize torques
         return torch.sum(torch.square(self.torques), dim=-1)
-        return torch.sum(torch.square(self.torques), dim=-1)
 
     def _reward_dof_vel(self):
         # Penalize dof velocities
         return torch.sum(torch.square(self.dof_vel), dim=-1)
-        return torch.sum(torch.square(self.dof_vel), dim=-1)
 
     def _reward_dof_acc(self):
         # Penalize dof accelerations
-        return torch.sum(torch.square((self.last_dof_vel - self.dof_vel) / self.dt), dim=-1)
         return torch.sum(torch.square((self.last_dof_vel - self.dof_vel) / self.dt), dim=-1)
 
     def _reward_root_acc(self):
