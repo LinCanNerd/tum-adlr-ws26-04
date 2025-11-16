@@ -138,6 +138,7 @@ class Runner:
             mean_value_loss = 0
             mean_actor_loss = 0
             mean_bound_loss = 0
+            mean_embedding_norm_loss = 0
             mean_entropy = 0
             for n in range(self.cfg["runner"]["mini_epochs"]):
                 values = self.model.est_value(self.buffer["obses"], self.buffer["privileged_obses"])
