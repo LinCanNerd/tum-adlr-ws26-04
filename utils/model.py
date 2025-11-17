@@ -39,9 +39,8 @@ class RMA(torch.nn.Module):
             torch.nn.Linear(512, 128),
             torch.nn.ELU(),
             torch.nn.Linear(128, num_embedding),
-            
         )
-        self.logstd = torch.nn.parameter.Parameter(torch.full((1, num_act), fill_value=-2.0), requires_grad=True)
+        self.logstd = torch.nn.parameter.Parameter(torch.full((1, num_act), fill_value=0.0), requires_grad=True)
 
     def act(self, obs, privileged_obs = None, stacked_obs = None):
         if privileged_obs is not None:

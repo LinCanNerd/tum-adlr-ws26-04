@@ -29,7 +29,7 @@ viewer:
   record_env_idx: 0
 
 algorithm:
-  num_embedding: 8
+  num_embedding: 8   # check this
   learning_rate: 1.e-5
   gamma: 0.995
   lam: 0.95
