@@ -25,7 +25,7 @@ class RMA(torch.nn.Module):
             torch.nn.Linear(128, num_act),
         )
         self.privileged_encoder = torch.nn.Sequential(
-            torch.nn.Linear(num_obs, num_embedding),
+            torch.nn.Linear(num_privileged_obs, num_embedding),
         )
         self.adaptation_module = torch.nn.Sequential(
             torch.nn.Linear(num_obs + obs_stacking, 1024),
