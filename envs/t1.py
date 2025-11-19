@@ -658,8 +658,8 @@ class T1(BaseTask):
 
     def _reward_action_rate(self):
         # Penalize changes in actions
-        return torch.sum(torch.square((self.last_actions - self.actions) / self.dt), dim=-1)
-    
+        return torch.sum(torch.square(self.last_actions - self.actions), dim=-1)
+
     def _reward_dof_pos_limits(self):
         # Penalize dof positions too close to the limit
         lower = self.dof_pos_limits[:, 0] + 0.5 * (1 - self.cfg["rewards"]["soft_dof_pos_limit"]) * (
@@ -675,13 +675,6 @@ class T1(BaseTask):
         # clip to max error = 1 rad/s per joint to avoid huge penalties
         return torch.sum(
             (torch.abs(self.dof_vel) - self.dof_vel_limits * self.cfg["rewards"]["soft_dof_vel_limit"]).clip(min=0.0, max=1.0),
-            dim=-1,
-        )
-
-    def _reward_torque_limits(self):
-        # Penalize torques too close to the limit
-        return torch.sum(
-            (torch.abs(self.torques) - self.torque_limits * self.cfg["rewards"]["soft_torque_limit"]).clip(min=0.0),
             dim=-1,
         )
 
