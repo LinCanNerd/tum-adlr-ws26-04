@@ -29,7 +29,7 @@ viewer:
   record_env_idx: 0
 
 algorithm:
-  num_embedding: 8   # check this
+  num_embedding: 14   # check this
   learning_rate: 1.e-5
   gamma: 0.995
   lam: 0.95
@@ -41,7 +41,7 @@ algorithm:
   desired_kl: 0.01
 
 sim:
-  dt: 0.004 # Hz
+  dt: 0.002 # Hz
   substeps: 1
   up_axis: "z"
   gravity: [0.0, 0.0, -9.81]
