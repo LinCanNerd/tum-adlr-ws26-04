@@ -108,7 +108,7 @@ if __name__ == "__main__":
             dof_vel = mj_data.qvel.astype(np.float32)[6:]
             quat = mj_data.sensor("orientation").data[[1, 2, 3, 0]].astype(np.float32)
             base_ang_vel = mj_data.sensor("angular-velocity").data.astype(np.float32)
-            base_linear_vel = mj_data.sensor("linear-velocity").data.astype(np.float32)
+            #base_linear_vel = mj_data.sensor("linear-velocity").data.astype(np.float32)
             projected_gravity = quat_rotate_inverse(quat, np.array([0.0, 0.0, -1.0]))
             if it % cfg["control"]["decimation"] == 0:
                 obs = np.zeros(cfg["env"]["num_observations"], dtype=np.float32)
@@ -124,7 +124,7 @@ if __name__ == "__main__":
                 obs[53:74] = actions
 
                 # privileged obs
-                base_lin_vel = mj_data.sensor("linear-velocity").data.astype(np.float32)
+                base_lin_vel = np.zeros(3, dtype=np.float32)
                 base_height = mj_data.qpos[2] - 0.0  
                 push_force = np.zeros(3, dtype=np.float32)   # No external forces
                 push_torque = np.zeros(3, dtype=np.float32)  # No external torques
@@ -136,7 +136,8 @@ if __name__ == "__main__":
                 pri[11:14] = push_torque * cfg["normalization"]["push_torque"]                
 
 
-                dist = model.act(torch.tensor(obs).unsqueeze(0),privileged_obs=torch.tensor(pri))
+                dist, _ = model.act(torch.tensor(obs).unsqueeze(0), privileged_obs=torch.tensor(pri))
+
                 if hasattr(dist, "loc"):
                     actions[:] = dist.loc.detach().numpy()
                 else:
