@@ -25,11 +25,7 @@ class RMA(torch.nn.Module):
             torch.nn.Linear(128, num_act),
         )
         self.privileged_encoder = torch.nn.Sequential(
-            torch.nn.Linear(num_privileged_obs, 128),
-            torch.nn.ELU(),
-            torch.nn.Linear(128,128),
-            torch.nn.ELU(),
-            torch.nn.Linear(128, num_embedding)
+            torch.nn.Linear(num_privileged_obs, num_embedding),
         )
         self.adaptation_module = torch.nn.Sequential(
             torch.nn.Linear(num_obs + obs_stacking, 1024),
@@ -40,7 +36,7 @@ class RMA(torch.nn.Module):
             torch.nn.ELU(),
             torch.nn.Linear(128, num_embedding),
         )
-        self.logstd = torch.nn.parameter.Parameter(torch.full((1, num_act), fill_value=0.0), requires_grad=True)
+        self.logstd = torch.nn.parameter.Parameter(torch.full((1, num_act), fill_value=-2.0), requires_grad=True)
 
     def act(self, obs, privileged_obs = None, stacked_obs = None):
         if privileged_obs is not None:

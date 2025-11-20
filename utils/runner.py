@@ -27,11 +27,11 @@ class Runner:
         self._set_seed()
         task_class = eval(self.cfg["basic"]["task"])
         self.env = task_class(self.cfg)
-        self.env = ObservationsWrapper(self.env, self.cfg["runner"]["num_stack"])
+        #self.env = ObservationsWrapper(self.env, self.cfg["runner"]["num_stack"])
 
         self.device = self.cfg["basic"]["rl_device"]
         self.learning_rate = self.cfg["algorithm"]["learning_rate"]
-        self.model = RMA(self.env.num_actions, self.env.num_obs,self.env.num_stack, self.env.num_privileged_obs, self.cfg["algorithm"]["num_embedding"]).to(self.device)
+        self.model = RMA(self.env.num_actions, self.env.num_obs, obs_stacking=50, num_privileged_obs=self.env.num_privileged_obs, num_embedding=self.cfg["algorithm"]["num_embedding"]).to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
         self._load()
 
@@ -39,7 +39,7 @@ class Runner:
         self.buffer.add_buffer("actions", (self.env.num_actions,))
         self.buffer.add_buffer("obses", (self.env.num_obs,))
         self.buffer.add_buffer("privileged_obses", (self.env.num_privileged_obs,))
-        self.buffer.add_buffer("stacked_obses",(self.env.num_stack, self.env.num_obs))
+        #self.buffer.add_buffer("stacked_obses",(self.env.num_stack, self.env.num_obs))
         self.buffer.add_buffer("rewards", ())
         self.buffer.add_buffer("dones", (), dtype=bool)
         self.buffer.add_buffer("time_outs", (), dtype=bool)
@@ -101,32 +101,24 @@ class Runner:
 
     def train(self):
         self.recorder = Recorder(self.cfg)
-        obs, rew, done, infos = self.env.reset()
-        obs, rew, done = obs.to(self.device), rew.to(self.device), done.to(self.device)
+        obs, infos = self.env.reset()
+        obs = obs.to(self.device)
         privileged_obs = infos["privileged_obs"].to(self.device)
-        stacked_obs = infos["stacked_obs"].to(self.device)
-
         for it in range(self.cfg["basic"]["max_iterations"]):
             # within horizon_length, env.step() is called with same act
             for n in range(self.cfg["runner"]["horizon_length"]):
                 self.buffer.update_data("obses", n, obs)
                 self.buffer.update_data("privileged_obses", n, privileged_obs)
-                self.buffer.update_data("stacked_obses", n, stacked_obs)
-
                 with torch.no_grad():
                     dist, embedding = self.model.act(obs, privileged_obs= privileged_obs)
                     act = dist.sample()
-
                 obs, rew, done, infos = self.env.step(act)
                 obs, rew, done = obs.to(self.device), rew.to(self.device), done.to(self.device)
                 privileged_obs = infos["privileged_obs"].to(self.device)
-                stacked_obs = infos["stacked_obs"].to(self.device)
-
                 self.buffer.update_data("actions", n, act)
                 self.buffer.update_data("rewards", n, rew)
                 self.buffer.update_data("dones", n, done)
                 self.buffer.update_data("time_outs", n, infos["time_outs"].to(self.device))
-
                 ep_info = {"reward": rew}
                 ep_info.update(infos["rew_terms"])
                 self.recorder.record_episode_statistics(done, ep_info, it, n == (self.cfg["runner"]["horizon_length"] - 1))
