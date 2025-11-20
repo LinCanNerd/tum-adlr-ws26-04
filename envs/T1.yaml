@@ -134,7 +134,7 @@ commands:
   resampling_time_s: [8., 12.]
   gait_frequency: [1.0, 2.0] # min max [Hz]
   # curriculum only:
-  curriculum: false
+  curriculum: true
   update_rate: 0.1
   lin_vel_levels: 10
   ang_vel_levels: 10
