@@ -224,18 +224,20 @@ class Runner:
             print("epoch: {}/{}".format(it + 1, self.cfg["basic"]["max_iterations"]))
 
     def play(self):
-        obs, infos = self.env.reset()
-        obs = obs.to(self.device)
+        obs,rew,done, infos = self.env.reset()
+        obs, rew, done = obs.to(self.device), rew.to(self.device), done.to(self.device)
+        privileged_obs = infos["privileged_obs"].to(self.device)
         if self.cfg["viewer"]["record_video"]:
             os.makedirs("videos", exist_ok=True)
             name = time.strftime("%Y-%m-%d-%H-%M-%S.mp4", time.localtime())
             record_time = self.cfg["viewer"]["record_interval"]
         while True:
             with torch.no_grad():
-                dist = self.model.act(obs)
+                dist, _ = self.model.act(obs, privileged_obs = privileged_obs)
                 act = dist.loc
                 obs, rew, done, infos = self.env.step(act)
                 obs, rew, done = obs.to(self.device), rew.to(self.device), done.to(self.device)
+                privileged_obs = infos["privileged_obs"].to(self.device)
             if self.cfg["viewer"]["record_video"]:
                 record_time -= self.env.dt
                 if record_time < 0:
