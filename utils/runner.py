@@ -224,8 +224,8 @@ class Runner:
             print("epoch: {}/{}".format(it + 1, self.cfg["basic"]["max_iterations"]))
 
     def play(self):
-        obs,rew,done, infos = self.env.reset()
-        obs, rew, done = obs.to(self.device), rew.to(self.device), done.to(self.device)
+        obs, infos = self.env.reset()
+        obs = obs.to(self.device)
         privileged_obs = infos["privileged_obs"].to(self.device)
         if self.cfg["viewer"]["record_video"]:
             os.makedirs("videos", exist_ok=True)

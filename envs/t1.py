@@ -136,6 +136,13 @@ class T1(BaseTask):
             self.envs.append(env_handle)
             self.actor_handles.append(actor_handle)
 
+            #shoulder and hip index
+            self.left_shoulder_idx = self.gym.find_actor_dof_index(env_handle, actor_handle, "Shoulder_Pitch_Left", gymapi.DOMAIN_ACTOR)
+            self.left_hip_idx = self.gym.find_actor_dof_index(env_handle, actor_handle, "Hip_Pitch_Left", gymapi.DOMAIN_ACTOR)
+            self.right_shoulder_idx = self.gym.find_actor_dof_index(env_handle, actor_handle, "Shoulder_Pitch_Right", gymapi.DOMAIN_ACTOR)
+            self.right_hip_idx = self.gym.find_actor_dof_index(env_handle, actor_handle, "Hip_Pitch_Right", gymapi.DOMAIN_ACTOR)
+            
+
     def _process_rigid_body_props(self, props, i):
         for j in range(self.num_bodies):
             if j == self.base_indice:
@@ -735,3 +742,21 @@ class T1(BaseTask):
         left_swing = (torch.abs(self.gait_process - 0.25) < 0.5 * self.cfg["rewards"]["swing_period"]) & (self.gait_frequency > 1.0e-8)
         right_swing = (torch.abs(self.gait_process - 0.75) < 0.5 * self.cfg["rewards"]["swing_period"]) & (self.gait_frequency > 1.0e-8)
         return (left_swing & ~self.feet_contact[:, 0]).float() + (right_swing & ~self.feet_contact[:, 1]).float()
+
+    def _reward_arm_swing(self):
+        """
+        Penalize if (Shoulder + Hip) != 0.
+        This forces the arm to move in the OPPOSITE direction of the leg (Anti-Phase).
+        """
+        # Get current joint positions
+        left_shoulder_pos = self.dof_pos[:, self.left_shoulder_idx]
+        left_hip_pos      = self.dof_pos[:, self.left_hip_idx]
+        right_shoulder_pos = self.dof_pos[:, self.right_shoulder_idx]
+        right_hip_pos      = self.dof_pos[:, self.right_hip_idx]
+
+        # Calculate "Anti-Phase" error
+        # Squared error enforces that they cancel each other out
+        left_error  = torch.square(left_shoulder_pos + left_hip_pos)
+        right_error = torch.square(right_shoulder_pos + right_hip_pos)
+
+        return (left_error + right_error)/2.

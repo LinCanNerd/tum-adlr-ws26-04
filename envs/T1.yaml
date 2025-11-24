@@ -1,7 +1,7 @@
 basic:
   checkpoint: null # set to -1 to load last saved model
   headless: true
-  max_iterations: 5000 # set the maximum number of learning iterations to train for
+  max_iterations: 10000 # set the maximum number of learning iterations to train for
   sim_device: "cuda:0" # device for physics simulation
   rl_device: "cuda:0" # device for the RL algorithm
   seed: 42 # seed - set to -1 to choose random seed
@@ -134,7 +134,7 @@ commands:
   resampling_time_s: [8., 12.]
   gait_frequency: [1.0, 2.0] # min max [Hz]
   # curriculum only:
-  curriculum: false
+  curriculum: true
   update_rate: 0.1
   lin_vel_levels: 10
   ang_vel_levels: 10
@@ -268,12 +268,12 @@ rewards:
     tracking_lin_vel_y: 1.0
     tracking_ang_vel: 0.5
     base_height: -20.
-    orientation: -5.
+    orientation: -10.
     torques: -2.e-4
     torque_tiredness: -1.e-2
     power: -2.e-3
     lin_vel_z: -2.
-    ang_vel_xy: -0.2
+    ang_vel_xy: -0.5
     dof_vel: -1.e-4
     dof_acc: -1.e-7
     root_acc: -1.e-4
@@ -282,6 +282,7 @@ rewards:
     dof_vel_limits: -0.
     torque_limits: -0.
     collision: -1.
+    arm_swing: -1.
     feet_slip: -0.1
     feet_vel_z: -0.
     feet_yaw_diff: -1.
