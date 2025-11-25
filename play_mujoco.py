@@ -19,10 +19,6 @@ def quat_rotate_inverse(q, v):
     c = q_vec * (np.dot(q_vec, v) * 2.0)
     return a - b + c
 
-def get_privileged_obs(linear_vel):
-    base_mass_scaled = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32)
-    base_lin
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -51,6 +47,7 @@ if __name__ == "__main__":
     dof_stiffness = np.zeros(mj_model.nu, dtype=np.float32)
     dof_damping = np.zeros(mj_model.nu, dtype=np.float32)
     base_mass_scaled = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32) # no scaling
+    base_linear_vel = mj_data.sensor("linear-velocity").data.astype(np.float32)
     for i in range(mj_model.nu):
         found = False
         for name in cfg["init_state"]["default_joint_angles"].keys():
@@ -136,7 +133,7 @@ if __name__ == "__main__":
                 pri[11:14] = push_torque * cfg["normalization"]["push_torque"]                
 
 
-                dist = model.act(torch.tensor(obs).unsqueeze(0),privileged_obs=torch.tensor(pri))
+                dist, _ = model.act(torch.tensor(obs).unsqueeze(0),privileged_obs=torch.tensor(pri).unsqueeze(0))
                 if hasattr(dist, "loc"):
                     actions[:] = dist.loc.detach().numpy()
                 else:
