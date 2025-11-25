@@ -47,7 +47,6 @@ if __name__ == "__main__":
     dof_stiffness = np.zeros(mj_model.nu, dtype=np.float32)
     dof_damping = np.zeros(mj_model.nu, dtype=np.float32)
     base_mass_scaled = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32) # no scaling
-    base_linear_vel = mj_data.sensor("linear-velocity").data.astype(np.float32)
     for i in range(mj_model.nu):
         found = False
         for name in cfg["init_state"]["default_joint_angles"].keys():

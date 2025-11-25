@@ -97,12 +97,12 @@ init_state:
     "Waist": 0.0,
     "Shoulder_Pitch": 0.0,
     "Shoulder_Roll": 0.0,
-    "Elbow_Pitch": 0.0,
+    "Elbow_Pitch": 0.8,
     "Elbow_Yaw": 0.0,
     "default": 0.} # target angles when action = 0.0
 
 control:
-  stiffness: {"Hip": 200., "Knee": 200., "Ankle": 50., "Waist": 150., "Shoulder": 100., "Elbow": 80.} # [N*m/rad]
+  stiffness: {"Hip": 200., "Knee": 200., "Ankle": 50., "Waist": 150., "Shoulder": 20., "Elbow": 20.} # [N*m/rad]
   damping: {"Hip": 5., "Knee": 5., "Ankle": 1., "Waist": 5., "Shoulder": 2., "Elbow": 2.,} # [N*m*s/rad]
   action_scale: 1.
   decimation: 10
@@ -264,9 +264,9 @@ randomization:
 rewards:
   scales:
     survival: 0.25
-    tracking_lin_vel_x: 1.0
-    tracking_lin_vel_y: 1.0
-    tracking_ang_vel: 0.5
+    tracking_lin_vel_x: 1.5
+    tracking_lin_vel_y: 1.5
+    tracking_ang_vel: 1,0
     base_height: -20.
     orientation: -10.
     torques: -2.e-4
@@ -274,7 +274,7 @@ rewards:
     power: -2.e-3
     lin_vel_z: -2.
     ang_vel_xy: -0.5
-    dof_vel: -1.e-4
+    dof_vel: -1.e-3
     dof_acc: -1.e-7
     root_acc: -1.e-4
     action_rate: -1.
@@ -283,7 +283,7 @@ rewards:
     torque_limits: -0.
     collision: -1.
     arm_swing: -1.
-    feet_slip: -0.1
+    feet_slip: -1.
     feet_vel_z: -0.
     feet_yaw_diff: -1.
     feet_yaw_mean: -1.
