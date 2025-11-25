@@ -282,7 +282,7 @@ rewards:
     dof_vel_limits: -0.
     torque_limits: -0.
     collision: -1.
-    arm_swing: -1.
+    arm_swing: -2.
     feet_slip: -1.
     feet_vel_z: -0.
     feet_yaw_diff: -1.

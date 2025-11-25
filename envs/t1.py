@@ -759,4 +759,4 @@ class T1(BaseTask):
         left_error  = torch.square(left_shoulder_pos + left_hip_pos)
         right_error = torch.square(right_shoulder_pos + right_hip_pos)
 
-        return (left_error + right_error)/2.
+        return left_error + right_error
