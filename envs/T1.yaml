@@ -266,7 +266,7 @@ rewards:
     survival: 0.25
     tracking_lin_vel_x: 1.5
     tracking_lin_vel_y: 1.5
-    tracking_ang_vel: 1,0
+    tracking_ang_vel: 1.0
     base_height: -20.
     orientation: -10.
     torques: -2.e-4
