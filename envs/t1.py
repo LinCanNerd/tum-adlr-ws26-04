@@ -137,12 +137,11 @@ class T1(BaseTask):
             self.actor_handles.append(actor_handle)
 
             #shoulder and hip index
-            self.left_shoulder_idx = self.gym.find_actor_dof_index(env_handle, actor_handle, "Shoulder_Pitch_Left", gymapi.DOMAIN_ACTOR)
-            self.left_hip_idx = self.gym.find_actor_dof_index(env_handle, actor_handle, "Hip_Pitch_Left", gymapi.DOMAIN_ACTOR)
-            self.right_shoulder_idx = self.gym.find_actor_dof_index(env_handle, actor_handle, "Shoulder_Pitch_Right", gymapi.DOMAIN_ACTOR)
-            self.right_hip_idx = self.gym.find_actor_dof_index(env_handle, actor_handle, "Hip_Pitch_Right", gymapi.DOMAIN_ACTOR)
+            self.left_shoulder_idx = self.gym.find_actor_dof_index(env_handle, actor_handle, "Left_Shoulder_Pitch", gymapi.DOMAIN_ACTOR)
+            self.left_hip_idx = self.gym.find_actor_dof_index(env_handle, actor_handle, "Left_Hip_Pitch", gymapi.DOMAIN_ACTOR)
+            self.right_shoulder_idx = self.gym.find_actor_dof_index(env_handle, actor_handle, "Right_Shoulder_Pitch", gymapi.DOMAIN_ACTOR)
+            self.right_hip_idx = self.gym.find_actor_dof_index(env_handle, actor_handle, "Right_Hip_Pitch", gymapi.DOMAIN_ACTOR)
             
-
     def _process_rigid_body_props(self, props, i):
         for j in range(self.num_bodies):
             if j == self.base_indice:
