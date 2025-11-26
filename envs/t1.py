@@ -141,7 +141,7 @@ class T1(BaseTask):
             self.left_hip_idx = self.gym.find_actor_dof_index(env_handle, actor_handle, "Left_Hip_Pitch", gymapi.DOMAIN_ACTOR)
             self.right_shoulder_idx = self.gym.find_actor_dof_index(env_handle, actor_handle, "Right_Shoulder_Pitch", gymapi.DOMAIN_ACTOR)
             self.right_hip_idx = self.gym.find_actor_dof_index(env_handle, actor_handle, "Right_Hip_Pitch", gymapi.DOMAIN_ACTOR)
-            
+
     def _process_rigid_body_props(self, props, i):
         for j in range(self.num_bodies):
             if j == self.base_indice:
@@ -758,4 +758,4 @@ class T1(BaseTask):
         left_error  = torch.square(left_shoulder_pos + left_hip_pos)
         right_error = torch.square(right_shoulder_pos + right_hip_pos)
 
-        return (left_error + right_error)/2.
+        return left_error + right_error
