@@ -38,6 +38,14 @@ class RMA(torch.nn.Module):
             torch.nn.ELU(),
             torch.nn.Linear(128, num_embedding),
         )
+        self.decoder = torch.nn.Sequential(
+            torch.nn.Linear(num_embedding, 128),
+            torch.nn.ELU(),
+            torch.nn.Linear(128, 128),
+            torch.nn.ELU(),
+            torch.nn.Linear(128, num_privileged_obs),
+        )
+
         self.logstd = torch.nn.parameter.Parameter(torch.full((1, num_act), fill_value=-2.0), requires_grad=True)
 
     def act(self, obs, privileged_obs = None, stacked_obs = None):
@@ -50,6 +58,9 @@ class RMA(torch.nn.Module):
         action_std = torch.exp(self.logstd).expand_as(action_mean)
         dist = torch.distributions.Normal(action_mean, action_std)
         return dist, embedding
+    
+    def decode(self, embedding):
+        return self.decoder(embedding)
     
     def est_value(self, obs, privileged_obs):
         critic_input = torch.cat((obs, privileged_obs), dim=-1)
