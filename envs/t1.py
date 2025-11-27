@@ -20,7 +20,6 @@ from .base_task import BaseTask
 
 from utils.utils import apply_randomization
 
-
 class T1(BaseTask):
 
     def __init__(self, cfg):

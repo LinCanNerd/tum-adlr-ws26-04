@@ -106,6 +106,30 @@ class T1Symmetry:
 
         # Combine
         self.obs_transform = torch.matmul(self.obs_perm_mat, self.obs_flip_mat)
+        # ==========================================================
+        # 4. BUILD PRIVILEGED OBS MATRIX (14 x 14)
+        # ==========================================================
+        # 0: CoM X
+        # 1: CoM Y      <- FLIP
+        # 2: CoM Z
+        # 3: Mass
+        # 4: Lin Vel X
+        # 5: Lin Vel Y  <- FLIP
+        # 6: Lin Vel Z
+        # 7: Height
+        # 8: Force X
+        # 9: Force Y    <- FLIP
+        # 10: Force Z
+        # 11: Torque X  <- FLIP (Roll)
+        # 12: Torque Y
+        # 13: Torque Z  <- FLIP (Yaw)
+
+        priv_flip = torch.ones(self.num_priv, device=self.device)
+        neg_priv_ids = [1, 5, 9, 11, 13]
+        priv_flip[neg_priv_ids] = -1
+        
+        # No Permutation needed (Identity matrix), just diagonal flips
+        self.priv_transform = torch.diag(priv_flip)
 
     def mirror_act(self, act):
         # Expects shape (Batch, 21)
@@ -114,3 +138,7 @@ class T1Symmetry:
     def mirror_obs(self, obs):
         # Expects shape (Batch, 74)
         return torch.matmul(self.obs_transform, obs.unsqueeze(-1)).squeeze(-1)
+    
+    def mirror_priv(self, priv):
+        # Expects shape (Batch, 14)
+        return torch.matmul(self.priv_transform, priv.unsqueeze(-1)).squeeze(-1)
