@@ -34,7 +34,7 @@ algorithm:
   gamma: 0.995
   lam: 0.95
   bound_coef: 1.0
-  denoising_coef: 1.0
+  regression_coef: 1.0
   embedding_norm_coef: 1.0
   entropy_coef: -0.01
   symmetric_coef: 10.
