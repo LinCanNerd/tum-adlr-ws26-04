@@ -113,6 +113,9 @@ class Runner:
             for n in range(self.cfg["runner"]["horizon_length"]):
                 mirrored_obs = self.symmetric_env.mirror_obs(obs)
                 mirrored_privileged_obs = self.symmetric_env.mirror_priv(privileged_obs)
+                assert torch.allclose(obs, self.symmetric_env.mirror_obs(mirrored_obs))
+                assert torch.allclose(privileged_obs, self.symmetric_env.mirror_priv(mirrored_privileged_obs))
+
                 self.buffer.update_data("obses", n, obs)
                 self.buffer.update_data("privileged_obses", n, privileged_obs)
                 self.buffer.update_data("mirrored_obses", n, mirrored_obs)
@@ -121,6 +124,9 @@ class Runner:
                     dist, embedding = self.model.act(obs, privileged_obs= privileged_obs)
                     mirrored_dist, _ = self.model.act(mirrored_obs, privileged_obs = mirrored_privileged_obs)
                     act = 0.5 * (dist.loc + self.symmetric_env.mirror_act(mirrored_dist.loc)) + dist.scale * torch.randn_like(dist.loc)
+
+                x = torch.randn_like(act)
+                assert torch.allclose(x, self.symmetric_env.mirror_act(self.symmetric_env.mirror_act(x)))
 
                 obs, rew, done, infos = self.env.step(act)
                 obs, rew, done = obs.to(self.device), rew.to(self.device), done.to(self.device)
