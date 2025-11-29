@@ -118,6 +118,7 @@ class Runner:
                 obs, rew, done, infos = self.env.step(act)
                 obs, rew, done = obs.to(self.device), rew.to(self.device), done.to(self.device)
                 privileged_obs = infos["privileged_obs"].to(self.device)
+                stacked_obs = infos["stacked_obs"].to(self.device)  
                 self.buffer.update_data("actions", n, act)
                 self.buffer.update_data("rewards", n, rew)
                 self.buffer.update_data("dones", n, done)
@@ -139,7 +140,6 @@ class Runner:
             for n in range(self.cfg["runner"]["mini_epochs"]):
                 values = self.model.est_value(self.buffer["obses"], self.buffer["privileged_obses"])
                 last_values = self.model.est_value(obs, privileged_obs)
-                privileged_obs_est = self.model.decode(embedding)
                 with torch.no_grad():
                     self.buffer["rewards"][self.buffer["time_outs"]] = values[self.buffer["time_outs"]]
                     advantages = discount_values(
@@ -155,6 +155,7 @@ class Runner:
                 value_loss = F.mse_loss(values, returns)
 
                 dist, embedding = self.model.act(self.buffer["obses"], stacked_obs= self.buffer["stacked_obses"])
+                privileged_obs_est = self.model.decode(embedding)
                 actions_log_prob = dist.log_prob(self.buffer["actions"]).sum(dim=-1)
                 actor_loss = surrogate_loss(old_actions_log_prob, actions_log_prob, advantages)
 
