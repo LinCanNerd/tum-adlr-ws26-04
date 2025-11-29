@@ -40,7 +40,9 @@ class Runner:
         self.buffer = ExperienceBuffer(self.cfg["runner"]["horizon_length"], self.env.num_envs, self.device)
         self.buffer.add_buffer("actions", (self.env.num_actions,))
         self.buffer.add_buffer("obses", (self.env.num_obs,))
+        self.buffer.add_buffer("mirrored_obses", (self.env.num_obs,))
         self.buffer.add_buffer("privileged_obses", (self.env.num_privileged_obs,))
+        self.buffer.add_buffer("mirrored_privileged_obses", (self.env.num_privileged_obs,))
         #self.buffer.add_buffer("stacked_obses",(self.env.num_stack, self.env.num_obs))
         self.buffer.add_buffer("rewards", ())
         self.buffer.add_buffer("dones", (), dtype=bool)
@@ -161,7 +163,7 @@ class Runner:
                 value_loss = F.mse_loss(values, returns)
 
                 dist, embedding = self.model.act(self.buffer["obses"], privileged_obs= self.buffer["privileged_obses"])
-                mirrored_dist, mirrored_embedding = self.model.act(self.buffer["mirrored_obses"], privileged_obs = self.buffer["mirrored_privileged_obs"]) 
+                mirrored_dist, mirrored_embedding = self.model.act(self.buffer["mirrored_obses"], privileged_obs = self.buffer["mirrored_privileged_obses"]) 
                 mirrored_act = self.symmetric_env.mirror_act(mirrored_dist.loc)
                 symmetric_dist = torch.distributions.Normal(0.5 * (dist.loc + mirrored_act), dist.scale)
 

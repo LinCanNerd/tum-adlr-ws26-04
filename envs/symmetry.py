@@ -6,6 +6,7 @@ class T1Symmetry:
         self.num_dofs = env.num_dofs   # Should be 21
         self.num_obs = env.num_obs     # Should be 74
         self.num_acts = env.num_actions # Should be 21
+        self.num_priv = env.num_privileged_obs
         
         self.dof_names = env.dof_names
         
