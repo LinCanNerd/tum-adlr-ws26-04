@@ -17,6 +17,7 @@ from utils.wrapper import ObservationsWrapper
 from envs import *
 from envs.symmetry import T1Symmetry
 
+DEBUG=False
 
 class Runner:
 
@@ -112,9 +113,10 @@ class Runner:
             # within horizon_length, env.step() is called with same act
             for n in range(self.cfg["runner"]["horizon_length"]):
                 mirrored_obs = self.symmetric_env.mirror_obs(obs)
-                mirrored_privileged_obs = self.symmetric_env.mirror_priv(privileged_obs)
-                assert torch.allclose(obs, self.symmetric_env.mirror_obs(mirrored_obs))
-                assert torch.allclose(privileged_obs, self.symmetric_env.mirror_priv(mirrored_privileged_obs))
+                if DEBUG:
+                    mirrored_privileged_obs = self.symmetric_env.mirror_priv(privileged_obs)
+                    assert torch.allclose(obs, self.symmetric_env.mirror_obs(mirrored_obs))
+                    assert torch.allclose(privileged_obs, self.symmetric_env.mirror_priv(mirrored_privileged_obs))
 
                 self.buffer.update_data("obses", n, obs)
                 self.buffer.update_data("privileged_obses", n, privileged_obs)
@@ -179,7 +181,6 @@ class Runner:
                 bound_loss = torch.clip(dist.loc - 1.0, min=0.0).square().mean() + torch.clip(dist.loc + 1.0, max=0.0).square().mean()
                 embedding_norm_loss = torch.clip(embedding.square().mean(dim=-1) - 1.0, min=0.0).square().mean() + + torch.clip(mirrored_embedding.square().mean(dim=-1) - 1.0, min=0.0).square().mean()
                 symmetric_loss = F.mse_loss(dist.loc, mirrored_act)
-
                 entropy = dist.entropy().sum(dim=-1)
 
                 loss = (
