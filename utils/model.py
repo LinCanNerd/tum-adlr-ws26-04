@@ -73,4 +73,7 @@ class RMA(torch.nn.Module):
             yield p
         for p in self.adaptation_module.parameters():
             yield p
+        for p in self.decoder.parameters():
+            yield p
+
         yield self.logstd
