@@ -71,10 +71,6 @@ class RMA(torch.nn.Module):
             yield p
         for p in self.actor.parameters():
             yield p
-        for p in self.privileged_encoder.parameters():
-            yield p
-        yield self.logstd
-
-    def adapt_parameters(self):
         for p in self.adaptation_module.parameters():
             yield p
+        yield self.logstd
