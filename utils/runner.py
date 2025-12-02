@@ -31,7 +31,7 @@ class Runner:
 
         self.device = self.cfg["basic"]["rl_device"]
         self.learning_rate = self.cfg["algorithm"]["learning_rate"]
-        self.model = RMA(self.env.num_actions, self.env.num_obs, obs_stacking=50, num_privileged_obs=self.env.num_privileged_obs, num_embedding=self.cfg["algorithm"]["num_embedding"]).to(self.device)
+        self.model = RMA(self.env.num_actions, self.env.num_obs, obs_stacking=self.env.num_stack, num_privileged_obs=self.env.num_privileged_obs, num_embedding=self.cfg["algorithm"]["num_embedding"]).to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
         self._load()
 
@@ -40,6 +40,9 @@ class Runner:
         self.buffer.add_buffer("obses", (self.env.num_obs,))
         self.buffer.add_buffer("privileged_obses", (self.env.num_privileged_obs,))
         self.buffer.add_buffer("stacked_obses",(self.env.num_stack, self.env.num_obs))
+        self.buffer.add_buffer("mirrored_obses", (self.env.num_obs,))
+        self.buffer.add_buffer("mirrored_privileged_obses", (self.env.num_privileged_obs,))
+        self.buffer.add_buffer("mirrored_stacked_obses",(self.env.num_stack, self.env.num_obs))
         self.buffer.add_buffer("rewards", ())
         self.buffer.add_buffer("dones", (), dtype=bool)
         self.buffer.add_buffer("time_outs", (), dtype=bool)
@@ -109,12 +112,22 @@ class Runner:
         for it in range(self.cfg["basic"]["max_iterations"]):
             # within horizon_length, env.step() is called with same act
             for n in range(self.cfg["runner"]["horizon_length"]):
+                #get mirrored data
+                mirrored_obs = self.env.mirror_obs(obs)
+                mirrored_privileged_obs = self.env.mirror_priv(privileged_obs)
+                mirrored_stacked_obs = self.env.mirror_obs(stacked_obs)
                 self.buffer.update_data("obses", n, obs)
                 self.buffer.update_data("privileged_obses", n, privileged_obs)
                 self.buffer.update_data("stacked_obses", n, stacked_obs)
+                self.buffer.update_data("mirrored_obses", n, mirrored_obs)
+                self.buffer.update_data("mirrored_privileged_obses", n, mirrored_privileged_obs)
+                self.buffer.update_data("mirrored_stacked_obses", n, mirrored_stacked_obs)
+
                 with torch.no_grad():
                     dist, embedding = self.model.act(obs, stacked_obs = stacked_obs)
-                    act = dist.sample()
+                    mirrored_dist, mirrored_embedding = self.model.act(mirrored_obs, stacked_obs = mirrored_stacked_obs)
+                    act = 0.5 * (dist.loc + self.env.mirror_act(mirrored_dist.loc)) + dist.scale * torch.randn_like(dist.loc)
+
                 obs, rew, done, infos = self.env.step(act)
                 obs, rew, done = obs.to(self.device), rew.to(self.device), done.to(self.device)
                 privileged_obs = infos["privileged_obs"].to(self.device)
@@ -136,6 +149,7 @@ class Runner:
             mean_bound_loss = 0
             mean_embedding_norm_loss = 0
             mean_regression_loss = 0
+            mean_symmetric_loss = 0
             mean_entropy = 0
             for n in range(self.cfg["runner"]["mini_epochs"]):
                 values = self.model.est_value(self.buffer["obses"], self.buffer["privileged_obses"])
@@ -156,15 +170,20 @@ class Runner:
 
                 dist, embedding = self.model.act(self.buffer["obses"], stacked_obs= self.buffer["stacked_obses"])
                 privileged_obs_est = self.model.decode(embedding)
-                actions_log_prob = dist.log_prob(self.buffer["actions"]).sum(dim=-1)
+                mirrored_dist, mirrored_embedding = self.model.act(self.buffer["mirrored_obses"], stacked_obs= self.buffer["mirrored_stacked_obses"])
+                mirrored_privileged_obs_est = self.model.decode(mirrored_embedding)
+                mirrored_act = self.env.mirror_act(mirrored_dist.loc)
+                symmetric_dist = torch.distributions.Normal(0.5 * (dist.loc + mirrored_act), dist.scale)
+
+                actions_log_prob = symmetric_dist.log_prob(self.buffer["actions"]).sum(dim=-1)
                 actor_loss = surrogate_loss(old_actions_log_prob, actions_log_prob, advantages)
 
                 bound_loss = torch.clip(dist.loc - 1.0, min=0.0).square().mean() + torch.clip(dist.loc + 1.0, max=0.0).square().mean()
                 embedding_norm_loss = torch.clip(embedding.square().mean(dim=-1) - 1.0, min=0.0).square().mean()
 
                 entropy = dist.entropy().sum(dim=-1)
-
-                regression_loss = F.mse_loss(privileged_obs_est, self.buffer["privileged_obses"])
+                symmetric_loss = F.mse_loss(dist.loc, mirrored_act)
+                regression_loss = F.mse_loss(privileged_obs_est, self.buffer["privileged_obses"]) + F.mse_loss(mirrored_privileged_obs_est, self.buffer["mirrored_privileged_obses"])
 
                 loss = (
                     value_loss
@@ -173,6 +192,7 @@ class Runner:
                     + self.cfg["algorithm"]["entropy_coef"] * entropy.mean()
                     + self.cfg["algorithm"]["embedding_norm_coef"] * embedding_norm_loss
                     + self.cfg["algorithm"]["regression_coef"] * regression_loss 
+                    + self.cfg["algorithm"]["symmetric_coef"] * symmetric_loss
                 )
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -200,6 +220,7 @@ class Runner:
                 mean_bound_loss += bound_loss.item()
                 mean_entropy += entropy.mean()
                 mean_regression_loss += regression_loss.item()
+                mean_symmetric_loss += symmetric_loss.item()
 
             mean_value_loss /= self.cfg["runner"]["mini_epochs"]
             mean_actor_loss /= self.cfg["runner"]["mini_epochs"]
@@ -207,6 +228,7 @@ class Runner:
             mean_bound_loss /= self.cfg["runner"]["mini_epochs"]
             mean_regression_loss /= self.cfg["runner"]["mini_epochs"]
             mean_entropy /= self.cfg["runner"]["mini_epochs"]
+            mean_symmetric_loss /= self.cfg["runner"]["mini_epochs"]
             self.recorder.record_statistics(
                 {
                     "value_loss": mean_value_loss,
@@ -214,6 +236,7 @@ class Runner:
                     "bound_loss": mean_bound_loss,
                     "embedding_norm_loss": mean_embedding_norm_loss,
                     "regression_loss": mean_regression_loss,
+                    "symmetric_loss": mean_symmetric_loss,
                     "entropy": mean_entropy,
                     "kl_mean": kl_mean,
                     "lr": self.learning_rate,
