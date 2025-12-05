@@ -90,19 +90,19 @@ init_state:
   rot: [0.0, 0.0, 0.0, 1.0] # x,y,z,w [quat]
   lin_vel: [0.0, 0.0, 0.0]  # x,y,z [m/s]
   ang_vel: [0.0, 0.0, 0.0]  # x,y,z [rad/s]
-default_joint_angles: {
-    "Hip_Pitch": -0.2,
-    "Knee_Pitch": 0.4,
-    "Ankle_Pitch": -0.25,
-    "Waist": 0.0,
-    "Shoulder_Pitch": 0.0,
-    "Left_Shoulder_Roll": -1.35,   
-    "Right_Shoulder_Roll": 1.35,   
-    "Elbow_Pitch": 0.8,
-    "Left_Elbow_Yaw": -0.5,        
-    "Right_Elbow_Yaw": 0.5,       
-    "default": 0.
-}
+  default_joint_angles: {
+      "Hip_Pitch": -0.2,
+      "Knee_Pitch": 0.4,
+      "Ankle_Pitch": -0.25,
+      "Waist": 0.0,
+      "Shoulder_Pitch": 0.0,
+      "Left_Shoulder_Roll": -1.35,   
+      "Right_Shoulder_Roll": 1.35,   
+      "Elbow_Pitch": 0.8,
+      "Left_Elbow_Yaw": -0.5,        
+      "Right_Elbow_Yaw": 0.5,       
+      "default": 0.
+  }
 
 control:
   stiffness: {"Hip": 200., "Knee": 200., "Ankle": 50., "Waist": 150., "Shoulder": 20., "Elbow": 20.} # [N*m/rad]
@@ -267,11 +267,11 @@ randomization:
 rewards:
   scales:
     survival: 0.25
-    tracking_lin_vel_x: 1.5
-    tracking_lin_vel_y: 1.5
+    tracking_lin_vel_x: 2.0
+    tracking_lin_vel_y: 2.0
     tracking_ang_vel: 1.0
     base_height: -20.
-    orientation: -10.
+    orientation: -5.
     torques: -2.e-4
     torque_tiredness: -1.e-2
     power: -2.e-3
