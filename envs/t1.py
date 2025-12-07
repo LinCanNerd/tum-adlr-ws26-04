@@ -758,5 +758,6 @@ class T1(BaseTask):
         # Squared error enforces that they cancel each other out
         left_error  = torch.square(left_shoulder_offset + left_hip_offset)
         right_error = torch.square(right_shoulder_offset + right_hip_offset)
+        cmd_scale = torch.abs(self.commands[:, 0])
 
-        return left_error + right_error
+        return (left_error + right_error) * cmd_scale
