@@ -608,6 +608,184 @@ class T1(BaseTask):
         )
         self.extras["privileged_obs"] = self.privileged_obs_buf
 
+
+
+    def mirror_obs(self, obs):
+        """
+        Mirror observations for left-right symmetry
+        
+        Observation structure (74 dims):
+        - gravity (3): [gx, gy, gz]
+        - ang_vel (3): [wx, wy, wz]
+        - commands (3): [vx, vy, vyaw]
+        - gait (2): [cos_phase, sin_phase]
+        - dof_pos (21): joint positions
+        - dof_vel (21): joint velocities
+        - actions (21): last actions
+        """
+        mirrored = obs.clone()
+        
+        # Gravity (0:3) - mirror y component
+        mirrored[:, 1] *= -1  # gy
+        
+        # Angular velocity (3:6) - mirror x and z components
+        mirrored[:, 3] *= -1  # wx (roll rate)
+        mirrored[:, 5] *= -1  # wz (yaw rate)
+        
+        # Commands (6:9) - mirror y velocity and yaw
+        mirrored[:, 7] *= -1  # vy
+        mirrored[:, 8] *= -1  # vyaw
+        
+        # Gait phase (9:11) - stays the same (it's a scalar phase)
+        # No change needed
+        
+        # DOF positions (11:32), DOF velocities (32:53), Actions (53:74)
+        # Need to swap left-right joints and negate roll/yaw components
+        
+        # Define joint indices based on your URDF order
+        # Assuming order: [Waist, Left_Shoulder_Pitch, Left_Shoulder_Roll, Left_Elbow_Pitch, 
+        #                  Left_Elbow_Yaw, Right_Shoulder_Pitch, Right_Shoulder_Roll, Right_Elbow_Pitch,
+        #                  Right_Elbow_Yaw, Left_Hip_Pitch, Left_Hip_Roll, Left_Hip_Yaw, Left_Knee_Pitch,
+        #                  Left_Ankle_Pitch, Left_Ankle_Roll, Right_Hip_Pitch, Right_Hip_Roll, 
+        #                  Right_Hip_Yaw, Right_Knee_Pitch, Right_Ankle_Pitch, Right_Ankle_Roll]
+        
+        # Joint order: 0=Waist, 1-4=Left_Arm, 5-8=Right_Arm, 9-14=Left_Leg, 15-20=Right_Leg
+        
+        # Mirror each section: dof_pos, dof_vel, actions
+        for start_idx in [11, 32, 53]:  # Start indices for dof_pos, dof_vel, actions
+            # Waist (index 0) - negate (yaw motion)
+            mirrored[:, start_idx] *= -1
+            
+            # Swap left and right arms (1-4 with 5-8)
+            # Left arm: 1=Shoulder_Pitch, 2=Shoulder_Roll, 3=Elbow_Pitch, 4=Elbow_Yaw
+            # Right arm: 5=Shoulder_Pitch, 6=Shoulder_Roll, 7=Elbow_Pitch, 8=Elbow_Yaw
+            
+            # Swap arms
+            left_arm = mirrored[:, start_idx+1:start_idx+5].clone()  # indices 1-4
+            right_arm = mirrored[:, start_idx+5:start_idx+9].clone()  # indices 5-8
+            
+            mirrored[:, start_idx+1:start_idx+5] = right_arm
+            mirrored[:, start_idx+5:start_idx+9] = left_arm
+            
+            # Negate roll and yaw components for arms
+            mirrored[:, start_idx+2] *= -1  # Left Shoulder Roll (was right)
+            mirrored[:, start_idx+4] *= -1  # Left Elbow Yaw (was right)
+            mirrored[:, start_idx+6] *= -1  # Right Shoulder Roll (was left)
+            mirrored[:, start_idx+8] *= -1  # Right Elbow Yaw (was left)
+            
+            # Swap left and right legs (9-14 with 15-20)
+            # Left leg: 9=Hip_Pitch, 10=Hip_Roll, 11=Hip_Yaw, 12=Knee_Pitch, 13=Ankle_Pitch, 14=Ankle_Roll
+            # Right leg: 15=Hip_Pitch, 16=Hip_Roll, 17=Hip_Yaw, 18=Knee_Pitch, 19=Ankle_Pitch, 20=Ankle_Roll
+            
+            left_leg = mirrored[:, start_idx+9:start_idx+15].clone()  # indices 9-14
+            right_leg = mirrored[:, start_idx+15:start_idx+21].clone()  # indices 15-20
+            
+            mirrored[:, start_idx+9:start_idx+15] = right_leg
+            mirrored[:, start_idx+15:start_idx+21] = left_leg
+            
+            # Negate roll and yaw components for legs
+            mirrored[:, start_idx+10] *= -1  # Left Hip Roll (was right)
+            mirrored[:, start_idx+11] *= -1  # Left Hip Yaw (was right)
+            mirrored[:, start_idx+14] *= -1  # Left Ankle Roll (was right)
+            mirrored[:, start_idx+16] *= -1  # Right Hip Roll (was left)
+            mirrored[:, start_idx+17] *= -1  # Right Hip Yaw (was left)
+            mirrored[:, start_idx+20] *= -1  # Right Ankle Roll (was left)
+        
+        return mirrored
+
+
+    def mirror_priv(self, privileged_obs):
+        """
+        Mirror privileged observations
+        
+        Privileged observation structure (14 dims):
+        - base_mass_scaled (4): [com_x, com_y, com_z, mass_noise]
+        - lin_vel (3): [vx, vy, vz]
+        - height (1): base height above terrain
+        - push_force (3): [fx, fy, fz]
+        - push_torque (3): [tx, ty, tz]
+        """
+        mirrored = privileged_obs.clone()
+        
+        # Base mass scaled (0:4) - mirror y component of COM
+        mirrored[:, 1] *= -1  # com_y
+        
+        # Linear velocity (4:7) - mirror y component
+        mirrored[:, 5] *= -1  # vy
+        
+        # Height (7:8) - stays the same
+        # No change needed
+        
+        # Push force (8:11) - mirror y component
+        mirrored[:, 9] *= -1  # fy
+        
+        # Push torque (11:14) - mirror x and z components
+        mirrored[:, 11] *= -1  # tx (roll torque)
+        mirrored[:, 13] *= -1  # tz (yaw torque)
+        
+        return mirrored
+
+
+    def mirror_act(self, actions):
+        """
+        Mirror actions - same structure as dof positions
+        
+        Actions (21 dims): one per joint
+        Order: [Waist, L_Shoulder_Pitch, L_Shoulder_Roll, L_Elbow_Pitch, L_Elbow_Yaw,
+                R_Shoulder_Pitch, R_Shoulder_Roll, R_Elbow_Pitch, R_Elbow_Yaw,
+                L_Hip_Pitch, L_Hip_Roll, L_Hip_Yaw, L_Knee_Pitch, L_Ankle_Pitch, L_Ankle_Roll,
+                R_Hip_Pitch, R_Hip_Roll, R_Hip_Yaw, R_Knee_Pitch, R_Ankle_Pitch, R_Ankle_Roll]
+        """
+        mirrored = actions.clone()
+        
+        # Waist (index 0) - negate (yaw motion)
+        mirrored[:, 0] *= -1
+        
+        # Swap left and right arms (1-4 with 5-8)
+        left_arm = mirrored[:, 1:5].clone()
+        right_arm = mirrored[:, 5:9].clone()
+        
+        mirrored[:, 1:5] = right_arm
+        mirrored[:, 5:9] = left_arm
+        
+        # Negate roll and yaw components for arms
+        mirrored[:, 2] *= -1  # Left Shoulder Roll (was right)
+        mirrored[:, 4] *= -1  # Left Elbow Yaw (was right)
+        mirrored[:, 6] *= -1  # Right Shoulder Roll (was left)
+        mirrored[:, 8] *= -1  # Right Elbow Yaw (was left)
+        
+        # Swap left and right legs (9-14 with 15-20)
+        left_leg = mirrored[:, 9:15].clone()
+        right_leg = mirrored[:, 15:21].clone()
+        
+        mirrored[:, 9:15] = right_leg
+        mirrored[:, 15:21] = left_leg
+        
+        mirrored[:, 10] *= -1  # Left Hip Roll (was right)
+        mirrored[:, 11] *= -1  # Left Hip Yaw (was right)
+        mirrored[:, 14] *= -1  # Left Ankle Roll (was right)
+        mirrored[:, 16] *= -1  # Right Hip Roll (was left)
+        mirrored[:, 17] *= -1  # Right Hip Yaw (was left)
+        mirrored[:, 20] *= -1  # Right Ankle Roll (was left)
+        
+        return mirrored
+
+
+    # For stacked observations, mirror each frame in the stack
+    def mirror_stacked_obs(self, stacked_obs):
+        """
+        Mirror stacked observations
+        
+        stacked_obs shape: (batch_size, num_stack, num_obs)
+        """
+        batch_size, num_stack, num_obs = stacked_obs.shape
+        
+        flat_obs = stacked_obs.reshape(-1, num_obs)
+        mirrored_flat = self.mirror_obs(flat_obs)
+        mirrored_stacked = mirrored_flat.reshape(batch_size, num_stack, num_obs)
+        
+        return mirrored_stacked
+
     # ------------ reward functions----------------
     def _reward_survival(self):
         # Reward survival
@@ -747,11 +925,6 @@ class T1(BaseTask):
         Penalize if (Shoulder + Hip) != 0.
         This forces the arm to move in the OPPOSITE direction of the leg (Anti-Phase).
         """
-        # Get current joint positions
-        left_shoulder_pos = self.dof_pos[:, self.left_shoulder_idx]
-        left_hip_pos      = self.dof_pos[:, self.left_hip_idx]
-        right_shoulder_pos = self.dof_pos[:, self.right_shoulder_idx]
-        right_hip_pos      = self.dof_pos[:, self.right_hip_idx]
 
         left_shoulder_offset = self.dof_pos[:, self.left_shoulder_idx] - self.default_dof_pos[:, self.left_shoulder_idx]
         left_hip_offset = self.dof_pos[:, self.left_hip_idx] - self.default_dof_pos[:, self.left_hip_idx]
