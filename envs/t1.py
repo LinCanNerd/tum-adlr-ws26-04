@@ -747,15 +747,16 @@ class T1(BaseTask):
         Penalize if (Shoulder + Hip) != 0.
         This forces the arm to move in the OPPOSITE direction of the leg (Anti-Phase).
         """
-        # Get current joint positions
-        left_shoulder_pos = self.dof_pos[:, self.left_shoulder_idx]
-        left_hip_pos      = self.dof_pos[:, self.left_hip_idx]
-        right_shoulder_pos = self.dof_pos[:, self.right_shoulder_idx]
-        right_hip_pos      = self.dof_pos[:, self.right_hip_idx]
+
+        left_shoulder_offset = self.dof_pos[:, self.left_shoulder_idx] - self.default_dof_pos[:, self.left_shoulder_idx]
+        left_hip_offset = self.dof_pos[:, self.left_hip_idx] - self.default_dof_pos[:, self.left_hip_idx]
+
+        right_shoulder_offset = self.dof_pos[:, self.right_shoulder_idx] - self.default_dof_pos[:, self.right_shoulder_idx]
+        right_hip_offset = self.dof_pos[:, self.right_hip_idx] - self.default_dof_pos[:, self.right_hip_idx]
 
         # Calculate "Anti-Phase" error
         # Squared error enforces that they cancel each other out
-        left_error  = torch.square(left_shoulder_pos + left_hip_pos)
-        right_error = torch.square(right_shoulder_pos + right_hip_pos)
+        left_error  = torch.square(left_shoulder_offset + left_hip_offset)
+        right_error = torch.square(right_shoulder_offset + right_hip_offset)
 
         return left_error + right_error
