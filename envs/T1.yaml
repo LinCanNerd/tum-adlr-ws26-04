@@ -265,17 +265,17 @@ randomization:
 rewards:
   scales:
     survival: 0.25
-    tracking_lin_vel_x: 1.5
-    tracking_lin_vel_y: 1.5
-    tracking_ang_vel: 1.0
+    tracking_lin_vel_x: 1.0
+    tracking_lin_vel_y: 1.0
+    tracking_ang_vel: 0.5
     base_height: -20.
-    orientation: -10.
+    orientation: -5.
     torques: -2.e-4
     torque_tiredness: -1.e-2
     power: -2.e-3
     lin_vel_z: -2.
-    ang_vel_xy: -0.5
-    dof_vel: -1.e-3
+    ang_vel_xy: -0.2
+    dof_vel: -1.e-4
     dof_acc: -1.e-7
     root_acc: -1.e-4
     action_rate: -1.
@@ -284,7 +284,7 @@ rewards:
     torque_limits: -0.
     collision: -1.
     arm_swing: -2.
-    feet_slip: -1.
+    feet_slip: -0.1
     feet_vel_z: -0.
     feet_yaw_diff: -1.
     feet_yaw_mean: -1.
