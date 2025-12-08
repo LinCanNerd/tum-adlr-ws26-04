@@ -107,10 +107,83 @@ class T1Symmetry:
         # Combine
         self.obs_transform = torch.matmul(self.obs_perm_mat, self.obs_flip_mat)
 
+        # Validate that transformation matrices don't contain NaN
+        assert not torch.isnan(self.act_transform).any(), "Action transform contains NaN"
+        assert not torch.isnan(self.obs_transform).any(), "Observation transform contains NaN"
+
     def mirror_act(self, act):
-        # Expects shape (Batch, 21)
-        return torch.matmul(self.act_transform, act.unsqueeze(-1)).squeeze(-1)
+        """
+        Mirror actions.
+        Args:
+            act: shape (..., num_acts) - supports any batch dimensions
+        Returns:
+            mirrored actions with same shape
+        """
+        # Use einsum for clean batched matrix-vector multiplication
+        # 'ij,...j->...i' applies transform matrix to last dimension
+        return torch.einsum('ij,...j->...i', self.act_transform, act)
 
     def mirror_obs(self, obs):
-        # Expects shape (Batch, 74)
-        return torch.matmul(self.obs_transform, obs.unsqueeze(-1)).squeeze(-1)
+        """
+        Mirror observations.
+        Args:
+            obs: shape (..., num_obs) - supports any batch dimensions
+        Returns:
+            mirrored observations with same shape
+        """
+        # Use einsum for clean batched matrix-vector multiplication
+        return torch.einsum('ij,...j->...i', self.obs_transform, obs)
+
+    def check_for_nan(self, tensor, name="tensor"):
+        """Check if tensor contains NaN values and print debug info"""
+        if torch.isnan(tensor).any():
+            nan_count = torch.isnan(tensor).sum().item()
+            total = tensor.numel()
+            print(f"WARNING: {name} contains {nan_count}/{total} NaN values")
+            return True
+        return False
+
+    def augment_batch(self, obs, actions, rewards=None, dones=None):
+        """
+        Augment a batch with mirrored data for symmetric data augmentation.
+
+        Args:
+            obs: observations shape (batch, num_obs) or (horizon, batch, num_obs)
+            actions: actions shape (batch, num_acts) or (horizon, batch, num_acts)
+            rewards: optional rewards shape (batch,) or (horizon, batch)
+            dones: optional dones shape (batch,) or (horizon, batch)
+
+        Returns:
+            Tuple of augmented (obs, actions, rewards, dones) with doubled batch size
+        """
+        # Mirror observations and actions
+        mirror_obs = self.mirror_obs(obs)
+        mirror_acts = self.mirror_act(actions)
+
+        # Check for NaN in mirrored data (debug)
+        if torch.isnan(mirror_obs).any():
+            print(f"WARNING: NaN in mirrored obs! Input NaN count: {torch.isnan(obs).sum()}")
+            # Replace NaN with zeros to prevent propagation
+            mirror_obs = torch.where(torch.isnan(mirror_obs), torch.zeros_like(mirror_obs), mirror_obs)
+
+        if torch.isnan(mirror_acts).any():
+            print(f"WARNING: NaN in mirrored actions! Input NaN count: {torch.isnan(actions).sum()}")
+            mirror_acts = torch.where(torch.isnan(mirror_acts), torch.zeros_like(mirror_acts), mirror_acts)
+
+        # Determine the batch dimension (last dimension before features)
+        if obs.dim() == 2:  # (batch, features)
+            cat_dim = 0
+        else:  # (horizon, batch, features)
+            cat_dim = 1
+
+        aug_obs = torch.cat([obs, mirror_obs], dim=cat_dim)
+        aug_actions = torch.cat([actions, mirror_acts], dim=cat_dim)
+
+        aug_rewards = None
+        aug_dones = None
+        if rewards is not None:
+            aug_rewards = torch.cat([rewards, rewards], dim=cat_dim if rewards.dim() > 1 else 0)
+        if dones is not None:
+            aug_dones = torch.cat([dones, dones], dim=cat_dim if dones.dim() > 1 else 0)
+
+        return aug_obs, aug_actions, aug_rewards, aug_dones
