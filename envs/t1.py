@@ -302,7 +302,7 @@ class T1(BaseTask):
         self._reset_idx(torch.arange(self.num_envs, device=self.device))
         self._resample_commands()
         self._compute_observations()
-        return self.obs_buf,self.extras
+        return self.obs_buf, self.extras
 
     def _reset_idx(self, env_ids):
         if len(env_ids) == 0:
@@ -608,6 +608,166 @@ class T1(BaseTask):
         )
         self.extras["privileged_obs"] = self.privileged_obs_buf
 
+    # ==================== MIRROR FUNCTIONS ====================
+    # These functions support both 2D (..., features) and 3D (horizon, batch, features) tensors
+    # by using ellipsis indexing [..., idx] instead of [:, idx]
+
+    def mirror_obs(self, obs):
+        """
+        Mirror observations for left-right symmetry.
+
+        Supports both 2D (batch, 74) and 3D (horizon, batch, 74) inputs.
+
+        Observation structure (74 dims):
+        - gravity (3): [gx, gy, gz]
+        - ang_vel (3): [wx, wy, wz]
+        - commands (3): [vx, vy, vyaw]
+        - gait (2): [cos_phase, sin_phase]
+        - dof_pos (21): joint positions
+        - dof_vel (21): joint velocities
+        - actions (21): last actions
+        """
+        mirrored = obs.clone()
+
+        # Gravity (0:3) - mirror y component
+        mirrored[..., 1] *= -1  # gy
+
+        # Angular velocity (3:6) - mirror x and z components
+        mirrored[..., 3] *= -1  # wx (roll rate)
+        mirrored[..., 5] *= -1  # wz (yaw rate)
+
+        # Commands (6:9) - mirror y velocity and yaw
+        mirrored[..., 7] *= -1  # vy
+        mirrored[..., 8] *= -1  # vyaw
+
+        # Gait phase (9:11) - negate both for phase shift by PI (swap legs)
+        mirrored[..., 9] *= -1   # cos_phase
+        mirrored[..., 10] *= -1  # sin_phase
+
+        # DOF positions (11:32), DOF velocities (32:53), Actions (53:74)
+        # Need to swap left-right joints and negate roll/yaw components
+        for start_idx in [11, 32, 53]:  # Start indices for dof_pos, dof_vel, actions
+            # Waist (index 0) - negate (yaw motion)
+            mirrored[..., start_idx] *= -1
+
+            # Swap left and right arms (1-4 with 5-8)
+            left_arm = mirrored[..., start_idx+1:start_idx+5].clone()
+            right_arm = mirrored[..., start_idx+5:start_idx+9].clone()
+
+            mirrored[..., start_idx+1:start_idx+5] = right_arm
+            mirrored[..., start_idx+5:start_idx+9] = left_arm
+
+            # Negate roll and yaw components for arms (after swap)
+            mirrored[..., start_idx+2] *= -1  # Shoulder Roll (was right, now left position)
+            mirrored[..., start_idx+4] *= -1  # Elbow Yaw (was right, now left position)
+            mirrored[..., start_idx+6] *= -1  # Shoulder Roll (was left, now right position)
+            mirrored[..., start_idx+8] *= -1  # Elbow Yaw (was left, now right position)
+
+            # Swap left and right legs (9-14 with 15-20)
+            left_leg = mirrored[..., start_idx+9:start_idx+15].clone()
+            right_leg = mirrored[..., start_idx+15:start_idx+21].clone()
+
+            mirrored[..., start_idx+9:start_idx+15] = right_leg
+            mirrored[..., start_idx+15:start_idx+21] = left_leg
+
+            # Negate roll and yaw components for legs (after swap)
+            mirrored[..., start_idx+10] *= -1  # Hip Roll (was right, now left position)
+            mirrored[..., start_idx+11] *= -1  # Hip Yaw (was right, now left position)
+            mirrored[..., start_idx+14] *= -1  # Ankle Roll (was right, now left position)
+            mirrored[..., start_idx+16] *= -1  # Hip Roll (was left, now right position)
+            mirrored[..., start_idx+17] *= -1  # Hip Yaw (was left, now right position)
+            mirrored[..., start_idx+20] *= -1  # Ankle Roll (was left, now right position)
+
+        return mirrored
+
+    def mirror_priv(self, privileged_obs):
+        """
+        Mirror privileged observations.
+
+        Supports both 2D (batch, 14) and 3D (horizon, batch, 14) inputs.
+
+        Privileged observation structure (14 dims):
+        - base_mass_scaled (4): [com_x, com_y, com_z, mass_noise]
+        - lin_vel (3): [vx, vy, vz]
+        - height (1): base height above terrain
+        - push_force (3): [fx, fy, fz]
+        - push_torque (3): [tx, ty, tz]
+        """
+        mirrored = privileged_obs.clone()
+
+        # Base mass scaled (0:4) - mirror y component of COM
+        mirrored[..., 1] *= -1  # com_y
+
+        # Linear velocity (4:7) - mirror y component
+        mirrored[..., 5] *= -1  # vy
+
+        # Height (7:8) - stays the same
+
+        # Push force (8:11) - mirror y component
+        mirrored[..., 9] *= -1  # fy
+
+        # Push torque (11:14) - mirror x and z components
+        mirrored[..., 11] *= -1  # tx (roll torque)
+        mirrored[..., 13] *= -1  # tz (yaw torque)
+
+        return mirrored
+
+    def mirror_act(self, actions):
+        """
+        Mirror actions - same structure as dof positions.
+
+        Supports both 2D (batch, 21) and 3D (horizon, batch, 21) inputs.
+
+        Actions (21 dims): one per joint
+        Order: [Waist, L_Shoulder_Pitch, L_Shoulder_Roll, L_Elbow_Pitch, L_Elbow_Yaw,
+                R_Shoulder_Pitch, R_Shoulder_Roll, R_Elbow_Pitch, R_Elbow_Yaw,
+                L_Hip_Pitch, L_Hip_Roll, L_Hip_Yaw, L_Knee_Pitch, L_Ankle_Pitch, L_Ankle_Roll,
+                R_Hip_Pitch, R_Hip_Roll, R_Hip_Yaw, R_Knee_Pitch, R_Ankle_Pitch, R_Ankle_Roll]
+        """
+        mirrored = actions.clone()
+
+        # Waist (index 0) - negate (yaw motion)
+        mirrored[..., 0] *= -1
+
+        # Swap left and right arms (1-4 with 5-8)
+        left_arm = mirrored[..., 1:5].clone()
+        right_arm = mirrored[..., 5:9].clone()
+
+        mirrored[..., 1:5] = right_arm
+        mirrored[..., 5:9] = left_arm
+
+        # Negate roll and yaw components for arms (after swap)
+        mirrored[..., 2] *= -1  # Shoulder Roll (was right)
+        mirrored[..., 4] *= -1  # Elbow Yaw (was right)
+        mirrored[..., 6] *= -1  # Shoulder Roll (was left)
+        mirrored[..., 8] *= -1  # Elbow Yaw (was left)
+
+        # Swap left and right legs (9-14 with 15-20)
+        left_leg = mirrored[..., 9:15].clone()
+        right_leg = mirrored[..., 15:21].clone()
+
+        mirrored[..., 9:15] = right_leg
+        mirrored[..., 15:21] = left_leg
+
+        # Negate roll and yaw components for legs (after swap)
+        mirrored[..., 10] *= -1  # Hip Roll (was right)
+        mirrored[..., 11] *= -1  # Hip Yaw (was right)
+        mirrored[..., 14] *= -1  # Ankle Roll (was right)
+        mirrored[..., 16] *= -1  # Hip Roll (was left)
+        mirrored[..., 17] *= -1  # Hip Yaw (was left)
+        mirrored[..., 20] *= -1  # Ankle Roll (was left)
+
+        return mirrored
+
+    def mirror_stacked_obs(self, stacked_obs):
+        """
+        Mirror stacked observations.
+
+        stacked_obs shape: (batch_size, num_stack, num_obs)
+        """
+        # mirror_obs now handles 3D tensors directly with ellipsis indexing
+        return self.mirror_obs(stacked_obs)
+
     # ------------ reward functions----------------
     def _reward_survival(self):
         # Reward survival
@@ -665,7 +825,7 @@ class T1(BaseTask):
     def _reward_action_rate(self):
         # Penalize changes in actions
         return torch.sum(torch.square((self.last_actions - self.actions)), dim=-1)
-    
+
     def _reward_dof_pos_limits(self):
         # Penalize dof positions too close to the limit
         lower = self.dof_pos_limits[:, 0] + 0.5 * (1 - self.cfg["rewards"]["soft_dof_pos_limit"]) * (
@@ -681,13 +841,6 @@ class T1(BaseTask):
         # clip to max error = 1 rad/s per joint to avoid huge penalties
         return torch.sum(
             (torch.abs(self.dof_vel) - self.dof_vel_limits * self.cfg["rewards"]["soft_dof_vel_limit"]).clip(min=0.0, max=1.0),
-            dim=-1,
-        )
-
-    def _reward_torque_limits(self):
-        # Penalize torques too close to the limit
-        return torch.sum(
-            (torch.abs(self.torques) - self.torque_limits * self.cfg["rewards"]["soft_torque_limit"]).clip(min=0.0),
             dim=-1,
         )
 
@@ -758,6 +911,5 @@ class T1(BaseTask):
         # Squared error enforces that they cancel each other out
         left_error  = torch.square(left_shoulder_offset + left_hip_offset)
         right_error = torch.square(right_shoulder_offset + right_hip_offset)
-        cmd_scale = torch.abs(self.commands[:, 0])
 
-        return (left_error + right_error) * cmd_scale
+        return left_error + right_error
