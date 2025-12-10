@@ -302,7 +302,7 @@ class T1(BaseTask):
         self._reset_idx(torch.arange(self.num_envs, device=self.device))
         self._resample_commands()
         self._compute_observations()
-        return self.obs_buf,self.extras
+        return self.obs_buf, self.rew_buf, self.reset_buf, self.extras
 
     def _reset_idx(self, env_ids):
         if len(env_ids) == 0:
@@ -607,6 +607,108 @@ class T1(BaseTask):
             dim=-1,
         )
         self.extras["privileged_obs"] = self.privileged_obs_buf
+
+    def mirror_obs(self, obs):
+        """
+        Mirror observations for left-right symmetry.
+        Supports both 2D (batch, 74) and 3D (horizon, batch, 74) inputs.
+        """
+        mirrored = obs.clone()
+
+        # Gravity (0:3) - mirror y component
+        mirrored[..., 1] *= -1  # gy
+
+        # Angular velocity (3:6) - mirror x and z components
+        mirrored[..., 3] *= -1  # wx (roll rate)
+        mirrored[..., 5] *= -1  # wz (yaw rate)
+
+        # Commands (6:9) - mirror y velocity and yaw
+        mirrored[..., 7] *= -1  # vy
+        mirrored[..., 8] *= -1  # vyaw
+
+        # Gait phase (9:11) - negate both for phase shift by PI (swap legs)
+        mirrored[..., 9] *= -1   # cos_phase
+        mirrored[..., 10] *= -1  # sin_phase
+
+        # DOF positions (11:32), DOF velocities (32:53), Actions (53:74)
+        for start_idx in [11, 32, 53]:
+            # Waist (index 0) - negate (yaw motion)
+            mirrored[..., start_idx] *= -1
+
+            # Swap left and right arms (1-4 with 5-8)
+            left_arm = mirrored[..., start_idx+1:start_idx+5].clone()
+            right_arm = mirrored[..., start_idx+5:start_idx+9].clone()
+            mirrored[..., start_idx+1:start_idx+5] = right_arm
+            mirrored[..., start_idx+5:start_idx+9] = left_arm
+
+            # Negate roll and yaw components for arms (after swap)
+            mirrored[..., start_idx+2] *= -1  # Shoulder Roll
+            mirrored[..., start_idx+4] *= -1  # Elbow Yaw
+            mirrored[..., start_idx+6] *= -1  # Shoulder Roll
+            mirrored[..., start_idx+8] *= -1  # Elbow Yaw
+
+            # Swap left and right legs (9-14 with 15-20)
+            left_leg = mirrored[..., start_idx+9:start_idx+15].clone()
+            right_leg = mirrored[..., start_idx+15:start_idx+21].clone()
+            mirrored[..., start_idx+9:start_idx+15] = right_leg
+            mirrored[..., start_idx+15:start_idx+21] = left_leg
+
+            # Negate roll and yaw components for legs (after swap)
+            mirrored[..., start_idx+10] *= -1  # Hip Roll
+            mirrored[..., start_idx+11] *= -1  # Hip Yaw
+            mirrored[..., start_idx+14] *= -1  # Ankle Roll
+            mirrored[..., start_idx+16] *= -1  # Hip Roll
+            mirrored[..., start_idx+17] *= -1  # Hip Yaw
+            mirrored[..., start_idx+20] *= -1  # Ankle Roll
+
+        return mirrored
+
+
+    def mirror_priv(self, privileged_obs):
+        """Mirror privileged observations."""
+        mirrored = privileged_obs.clone()
+
+        mirrored[..., 1] *= -1   # com_y
+        mirrored[..., 5] *= -1   # vy
+        mirrored[..., 9] *= -1   # fy
+        mirrored[..., 11] *= -1  # tx (roll torque)
+        mirrored[..., 13] *= -1  # tz (yaw torque)
+
+        return mirrored
+
+
+    def mirror_act(self, actions):
+        """Mirror actions."""
+        mirrored = actions.clone()
+
+        # Waist
+        mirrored[..., 0] *= -1
+
+        # Swap arms
+        left_arm = mirrored[..., 1:5].clone()
+        right_arm = mirrored[..., 5:9].clone()
+        mirrored[..., 1:5] = right_arm
+        mirrored[..., 5:9] = left_arm
+
+        mirrored[..., 2] *= -1   # Shoulder Roll
+        mirrored[..., 4] *= -1   # Elbow Yaw
+        mirrored[..., 6] *= -1   # Shoulder Roll
+        mirrored[..., 8] *= -1   # Elbow Yaw
+
+        # Swap legs
+        left_leg = mirrored[..., 9:15].clone()
+        right_leg = mirrored[..., 15:21].clone()
+        mirrored[..., 9:15] = right_leg
+        mirrored[..., 15:21] = left_leg
+
+        mirrored[..., 10] *= -1  # Hip Roll
+        mirrored[..., 11] *= -1  # Hip Yaw
+        mirrored[..., 14] *= -1  # Ankle Roll
+        mirrored[..., 16] *= -1  # Hip Roll
+        mirrored[..., 17] *= -1  # Hip Yaw
+        mirrored[..., 20] *= -1  # Ankle Roll
+
+        return mirrored
 
     # ------------ reward functions----------------
     def _reward_survival(self):
