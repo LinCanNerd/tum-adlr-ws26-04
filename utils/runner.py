@@ -27,7 +27,7 @@ class Runner:
         self._set_seed()
         task_class = eval(self.cfg["basic"]["task"])
         self.env = task_class(self.cfg)
-        #self.env = ObservationsWrapper(self.env, self.cfg["runner"]["num_stack"])
+        self.env = ObservationsWrapper(self.env, self.cfg["runner"]["num_stack"])
 
         self.device = self.cfg["basic"]["rl_device"]
         self.learning_rate = self.cfg["algorithm"]["learning_rate"]
@@ -41,7 +41,7 @@ class Runner:
         self.buffer.add_buffer("privileged_obses", (self.env.num_privileged_obs,))
         self.buffer.add_buffer("mirrored_obses", (self.env.num_obs,))
         self.buffer.add_buffer("mirrored_privileged_obses", (self.env.num_privileged_obs,))
-        #self.buffer.add_buffer("stacked_obses",(self.env.num_stack, self.env.num_obs))
+        self.buffer.add_buffer("stacked_obses",(self.env.num_stack, self.env.num_obs))
         self.buffer.add_buffer("rewards", ())
         self.buffer.add_buffer("dones", (), dtype=bool)
         self.buffer.add_buffer("time_outs", (), dtype=bool)
