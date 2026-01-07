@@ -1,0 +1,270 @@
+"""
+RMA Phase 2 Training: Adaptation Module Training
+
+In this phase:
+- The policy (actor) and privileged encoder are frozen (loaded from Phase 1)
+- The adaptation module is trained to regress from stacked observations 
+  to match the embedding produced by the privileged encoder
+
+Usage:
+    python train2.py --task=T1 --encoder=logs/2024-xx-xx/nn/model_1000.pth
+    python train2.py --task=T1 --encoder=-1  # loads latest checkpoint
+"""
+
+import isaacgym
+import os
+import glob
+import yaml
+import argparse
+import numpy as np
+import random
+import torch
+import torch.nn.functional as F
+from utils.model import RMA
+from utils.buffer import ExperienceBuffer
+from utils.recorder import Recorder
+from utils.wrapper import ObservationsWrapper
+from envs import *
+
+
+class AdaptationRunner:
+
+    def __init__(self):
+        self._get_args()
+        self._update_cfg_from_args()
+        self._set_seed()
+        
+        # Initialize environment (same as Runner)
+        task_class = eval(self.cfg["basic"]["task"])
+        self.env = task_class(self.cfg)
+        self.env = ObservationsWrapper(self.env, self.cfg["runner"]["num_stack"])
+
+        self.device = self.cfg["basic"]["rl_device"]
+        
+        # Initialize model (same architecture as Phase 1)
+        self.model = RMA(
+            self.env.num_actions, 
+            self.env.num_obs, 
+            obs_stacking=self.cfg["runner"]["num_stack"] * self.env.num_obs,
+            num_privileged_obs=self.env.num_privileged_obs, 
+            num_embedding=self.cfg["algorithm"]["num_embedding"]
+        ).to(self.device)
+        
+        # Load pretrained encoder and policy from Phase 1
+        self._load_encoder()
+        
+        # Freeze actor, critic, privileged encoder, and logstd
+        self._freeze_ac_parameters()
+        
+        # Only optimize adaptation module
+        self.learning_rate = self.cfg["algorithm"].get("adapt_learning_rate", 1e-3)
+        self.optimizer = torch.optim.Adam(
+            self.model.adapt_parameters(), 
+            lr=self.learning_rate
+        )
+
+        # Setup buffer (similar to Runner)
+        self.buffer = ExperienceBuffer(self.cfg["runner"]["horizon_length"], self.env.num_envs, self.device)
+        self.buffer.add_buffer("obses", (self.env.num_obs,))
+        self.buffer.add_buffer("privileged_obses", (self.env.num_privileged_obs,))
+        self.buffer.add_buffer("stacked_obses", (self.env.num_stack, self.env.num_obs))
+        self.buffer.add_buffer("dones", (), dtype=bool)
+
+    def _get_args(self):
+        parser = argparse.ArgumentParser(description="RMA Phase 2: Adaptation Module Training")
+        parser.add_argument("--task", required=True, type=str, help="Name of the task to run.")
+        parser.add_argument("--encoder", required=True, type=str, 
+                          help="Path to Phase 1 checkpoint. Use -1 for latest.")
+        parser.add_argument("--num_envs", type=int, help="Number of environments. Overrides config.")
+        parser.add_argument("--headless", type=bool, help="Run headless. Overrides config.")
+        parser.add_argument("--sim_device", type=str, help="Device for physics simulation.")
+        parser.add_argument("--rl_device", type=str, help="Device for RL algorithm.")
+        parser.add_argument("--seed", type=int, help="Random seed.")
+        parser.add_argument("--max_iterations", type=int, help="Maximum training iterations.")
+        self.args = parser.parse_args()
+
+    def _update_cfg_from_args(self):
+        cfg_file = os.path.join("envs", "{}.yaml".format(self.args.task))
+        with open(cfg_file, "r", encoding="utf-8") as f:
+            self.cfg = yaml.load(f.read(), Loader=yaml.FullLoader)
+        
+        # Override with command line args (same logic as Runner)
+        for arg in vars(self.args):
+            if getattr(self.args, arg) is not None:
+                if arg == "num_envs":
+                    self.cfg["env"][arg] = getattr(self.args, arg)
+                elif arg != "encoder":  # encoder is handled separately
+                    self.cfg["basic"][arg] = getattr(self.args, arg)
+        
+        # Disable video recording during training
+        self.cfg["viewer"]["record_video"] = False
+
+    def _set_seed(self):
+        if self.cfg["basic"]["seed"] == -1:
+            self.cfg["basic"]["seed"] = np.random.randint(0, 10000)
+        print("Setting seed: {}".format(self.cfg["basic"]["seed"]))
+
+        random.seed(self.cfg["basic"]["seed"])
+        np.random.seed(self.cfg["basic"]["seed"])
+        torch.manual_seed(self.cfg["basic"]["seed"])
+        os.environ["PYTHONHASHSEED"] = str(self.cfg["basic"]["seed"])
+        torch.cuda.manual_seed(self.cfg["basic"]["seed"])
+        torch.cuda.manual_seed_all(self.cfg["basic"]["seed"])
+
+    def _load_encoder(self):
+        encoder_path = self.args.encoder
+        
+        # Handle -1 for latest checkpoint (same as Runner)
+        if encoder_path == "-1" or encoder_path == -1:
+            encoder_path = sorted(
+                glob.glob(os.path.join("logs", "**/*.pth"), recursive=True), 
+                key=os.path.getmtime
+            )[-1]
+        
+        print(f"Loading Phase 1 model from {encoder_path}")
+        checkpoint = torch.load(encoder_path, map_location=self.device, weights_only=True)
+        
+        # Load only actor, critic, privileged_encoder, and logstd
+        # Exclude adaptation_module to train it from scratch
+        model_state = checkpoint["model"]
+        filtered_state = {k: v for k, v in model_state.items() 
+                         if not k.startswith("adaptation_module")}
+        
+        self.model.load_state_dict(filtered_state, strict=False)
+        print("Loaded actor, critic, and privileged encoder from Phase 1")
+        
+        # Load curriculum if available
+        try:
+            self.env.curriculum_prob = checkpoint.get("curriculum", self.env.curriculum_prob)
+        except Exception as e:
+            print(f"Note: Could not load curriculum: {e}")
+
+    def _freeze_ac_parameters(self):
+        """Freeze everything except adaptation module"""
+        for param in self.model.critic.parameters():
+            param.requires_grad = False
+        for param in self.model.actor.parameters():
+            param.requires_grad = False
+        for param in self.model.privileged_encoder.parameters():
+            param.requires_grad = False
+        self.model.logstd.requires_grad = False
+        
+        trainable = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        total = sum(p.numel() for p in self.model.parameters())
+        print(f"Trainable parameters: {trainable:,} / {total:,}")
+
+    def train(self):
+        self.recorder = Recorder(self.cfg)
+        
+        # Reset environment
+        obs, rew, done, infos = self.env.reset()
+        obs = obs.to(self.device)
+        done = done.to(self.device)
+        privileged_obs = infos["privileged_obs"].to(self.device)
+        stacked_obs = infos["stacked_obs"].to(self.device)
+        
+        for it in range(self.cfg["basic"]["max_iterations"]):
+            # Collect rollout data
+            for n in range(self.cfg["runner"]["horizon_length"]):
+                self.buffer.update_data("obses", n, obs)
+                self.buffer.update_data("privileged_obses", n, privileged_obs)
+                self.buffer.update_data("stacked_obses", n, stacked_obs)
+                
+                # Get action from frozen policy using privileged encoder
+                with torch.no_grad():
+                    dist, _ = self.model.act(obs, privileged_obs=privileged_obs)
+                    
+                    # Symmetric action (same as Phase 1)
+                    mirrored_obs = self.env.mirror_obs(obs)
+                    mirrored_privileged_obs = self.env.mirror_priv(privileged_obs)
+                    mirrored_dist, _ = self.model.act(mirrored_obs, privileged_obs=mirrored_privileged_obs)
+                    act = 0.5 * (dist.loc + self.env.mirror_act(mirrored_dist.loc))
+                
+                # Step environment
+                obs, rew, done, infos = self.env.step(act)
+                obs = obs.to(self.device)
+                rew = rew.to(self.device)
+                done = done.to(self.device)
+                privileged_obs = infos["privileged_obs"].to(self.device)
+                stacked_obs = infos["stacked_obs"].to(self.device)
+                
+                self.buffer.update_data("dones", n, done)
+                
+                ep_info = {"reward": rew}
+                ep_info.update(infos["rew_terms"])
+                self.recorder.record_episode_statistics(
+                    done, ep_info, it, 
+                    n == (self.cfg["runner"]["horizon_length"] - 1)
+                )
+
+            # Train adaptation module
+            mean_adapt_loss = 0.0
+            mean_cosine_sim = 0.0
+            
+            num_mini_epochs = self.cfg["runner"].get("adapt_mini_epochs", self.cfg["runner"]["mini_epochs"])
+            
+            for _ in range(num_mini_epochs):
+                # Get target embedding from frozen privileged encoder
+                with torch.no_grad():
+                    target_embedding = self.model.privileged_encoder(self.buffer["privileged_obses"])
+                
+                # Get predicted embedding from adaptation module
+                # stacked_obs shape: [horizon, num_envs, num_stack, num_obs]
+                stacked_flat = self.buffer["stacked_obses"].flatten(start_dim=-2)  # [horizon, num_envs, num_stack * num_obs]
+                predicted_embedding = self.model.adaptation_module(stacked_flat)
+                
+                # MSE loss
+                adapt_loss = F.mse_loss(predicted_embedding, target_embedding)
+                
+                self.optimizer.zero_grad()
+                adapt_loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.adapt_parameters(), 1.0)
+                self.optimizer.step()
+                
+                mean_adapt_loss += adapt_loss.item()
+                
+                with torch.no_grad():
+                    cosine_sim = F.cosine_similarity(
+                        predicted_embedding.flatten(0, 1), 
+                        target_embedding.flatten(0, 1), 
+                        dim=-1
+                    ).mean()
+                    mean_cosine_sim += cosine_sim.item()
+            
+            mean_adapt_loss /= num_mini_epochs
+            mean_cosine_sim /= num_mini_epochs
+            
+            # Compute episode statistics
+            mean_ep_reward = np.mean(self.recent_episode_rewards) if self.recent_episode_rewards else 0.0
+            mean_ep_length = np.mean(self.recent_episode_lengths) if self.recent_episode_lengths else 0.0
+            
+            # Record statistics
+            self.recorder.record_statistics(
+                {
+                    "adapt/loss": mean_adapt_loss,
+                    "adapt/cosine_sim": mean_cosine_sim,
+                    "adapt/lr": self.learning_rate,
+                    "curriculum/mean_lin_vel_level": self.env.mean_lin_vel_level,
+                    "curriculum/mean_ang_vel_level": self.env.mean_ang_vel_level,
+                    "curriculum/max_lin_vel_level": self.env.max_lin_vel_level,
+                    "curriculum/max_ang_vel_level": self.env.max_ang_vel_level,
+                },
+                it,
+            )
+
+            # Save checkpoint
+            if (it + 1) % self.cfg["runner"]["save_interval"] == 0:
+                self.recorder.save(
+                    {
+                        "model": self.model.state_dict(),
+                        "optimizer": self.optimizer.state_dict(),
+                        "curriculum": self.env.curriculum_prob,
+                    },
+                    it + 1,
+                )
+            
+
+
+if __name__ == "__main__":
+    runner = AdaptationRunner()
+    runner.train()
