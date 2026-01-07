@@ -285,6 +285,7 @@ rewards:
     feet_roll: -0.1
     feet_distance: -1.
     feet_swing: 3.
+    arm_swing: -2.
   episode_length_s: 30.
   terminate_height: 0.45
   terminate_vel: 50.
