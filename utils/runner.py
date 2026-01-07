@@ -13,7 +13,6 @@ from utils.model import *
 from utils.buffer import ExperienceBuffer
 from utils.utils import discount_values, surrogate_loss
 from utils.recorder import Recorder
-from utils.wrapper import ObservationsWrapper
 from envs import *
 
 
@@ -27,11 +26,10 @@ class Runner:
         self._set_seed()
         task_class = eval(self.cfg["basic"]["task"])
         self.env = task_class(self.cfg)
-        #self.env = ObservationsWrapper(self.env, self.cfg["runner"]["num_stack"])
 
         self.device = self.cfg["basic"]["rl_device"]
         self.learning_rate = self.cfg["algorithm"]["learning_rate"]
-        self.model = RMA(self.env.num_actions, self.env.num_obs, obs_stacking=50, num_privileged_obs=self.env.num_privileged_obs, num_embedding=self.cfg["algorithm"]["num_embedding"]).to(self.device)
+        self.model = ActorCritic(self.env.num_actions, self.env.num_obs, self.env.num_privileged_obs).to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
         self._load()
 
@@ -39,7 +37,6 @@ class Runner:
         self.buffer.add_buffer("actions", (self.env.num_actions,))
         self.buffer.add_buffer("obses", (self.env.num_obs,))
         self.buffer.add_buffer("privileged_obses", (self.env.num_privileged_obs,))
-        #self.buffer.add_buffer("stacked_obses",(self.env.num_stack, self.env.num_obs))
         self.buffer.add_buffer("rewards", ())
         self.buffer.add_buffer("dones", (), dtype=bool)
         self.buffer.add_buffer("time_outs", (), dtype=bool)
@@ -110,7 +107,7 @@ class Runner:
                 self.buffer.update_data("obses", n, obs)
                 self.buffer.update_data("privileged_obses", n, privileged_obs)
                 with torch.no_grad():
-                    dist, embedding = self.model.act(obs, privileged_obs= privileged_obs)
+                    dist = self.model.act(obs)
                     act = dist.sample()
                 obs, rew, done, infos = self.env.step(act)
                 obs, rew, done = obs.to(self.device), rew.to(self.device), done.to(self.device)
@@ -124,13 +121,12 @@ class Runner:
                 self.recorder.record_episode_statistics(done, ep_info, it, n == (self.cfg["runner"]["horizon_length"] - 1))
 
             with torch.no_grad():
-                old_dist, embedding = self.model.act(self.buffer["obses"], privileged_obs= self.buffer["privileged_obses"])
+                old_dist = self.model.act(self.buffer["obses"])
                 old_actions_log_prob = old_dist.log_prob(self.buffer["actions"]).sum(dim=-1)
 
             mean_value_loss = 0
             mean_actor_loss = 0
             mean_bound_loss = 0
-            mean_embedding_norm_loss = 0
             mean_entropy = 0
             for n in range(self.cfg["runner"]["mini_epochs"]):
                 values = self.model.est_value(self.buffer["obses"], self.buffer["privileged_obses"])
@@ -149,12 +145,11 @@ class Runner:
                     advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
                 value_loss = F.mse_loss(values, returns)
 
-                dist, embedding = self.model.act(self.buffer["obses"], privileged_obs= self.buffer["privileged_obses"])
+                dist = self.model.act(self.buffer["obses"])
                 actions_log_prob = dist.log_prob(self.buffer["actions"]).sum(dim=-1)
                 actor_loss = surrogate_loss(old_actions_log_prob, actions_log_prob, advantages)
 
                 bound_loss = torch.clip(dist.loc - 1.0, min=0.0).square().mean() + torch.clip(dist.loc + 1.0, max=0.0).square().mean()
-                embedding_norm_loss = torch.clip(embedding.square().mean(dim=-1) - 1.0, min=0.0).square().mean()
 
                 entropy = dist.entropy().sum(dim=-1)
 
@@ -163,11 +158,10 @@ class Runner:
                     + actor_loss
                     + self.cfg["algorithm"]["bound_coef"] * bound_loss
                     + self.cfg["algorithm"]["entropy_coef"] * entropy.mean()
-                    + self.cfg["algorithm"]["embedding_norm_coef"] * embedding_norm_loss
                 )
                 self.optimizer.zero_grad()
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.model.ac_parameters(), 1.0)
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                 self.optimizer.step()
 
                 with torch.no_grad():
@@ -187,12 +181,10 @@ class Runner:
 
                 mean_value_loss += value_loss.item()
                 mean_actor_loss += actor_loss.item()
-                mean_embedding_norm_loss += embedding_norm_loss.item()
                 mean_bound_loss += bound_loss.item()
                 mean_entropy += entropy.mean()
             mean_value_loss /= self.cfg["runner"]["mini_epochs"]
             mean_actor_loss /= self.cfg["runner"]["mini_epochs"]
-            mean_embedding_norm_loss /= self.cfg["runner"]["mini_epochs"]
             mean_bound_loss /= self.cfg["runner"]["mini_epochs"]
             mean_entropy /= self.cfg["runner"]["mini_epochs"]
             self.recorder.record_statistics(
@@ -200,7 +192,6 @@ class Runner:
                     "value_loss": mean_value_loss,
                     "actor_loss": mean_actor_loss,
                     "bound_loss": mean_bound_loss,
-                    "embedding_norm_loss": mean_embedding_norm_loss,
                     "entropy": mean_entropy,
                     "kl_mean": kl_mean,
                     "lr": self.learning_rate,
@@ -224,20 +215,18 @@ class Runner:
             print("epoch: {}/{}".format(it + 1, self.cfg["basic"]["max_iterations"]))
 
     def play(self):
-        obs,rew,done, infos = self.env.reset()
-        obs, rew, done = obs.to(self.device), rew.to(self.device), done.to(self.device)
-        privileged_obs = infos["privileged_obs"].to(self.device)
+        obs, infos = self.env.reset()
+        obs = obs.to(self.device)
         if self.cfg["viewer"]["record_video"]:
             os.makedirs("videos", exist_ok=True)
             name = time.strftime("%Y-%m-%d-%H-%M-%S.mp4", time.localtime())
             record_time = self.cfg["viewer"]["record_interval"]
         while True:
             with torch.no_grad():
-                dist, _ = self.model.act(obs, privileged_obs = privileged_obs)
+                dist = self.model.act(obs)
                 act = dist.loc
                 obs, rew, done, infos = self.env.step(act)
                 obs, rew, done = obs.to(self.device), rew.to(self.device), done.to(self.device)
-                privileged_obs = infos["privileged_obs"].to(self.device)
             if self.cfg["viewer"]["record_video"]:
                 record_time -= self.env.dt
                 if record_time < 0:

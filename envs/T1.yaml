@@ -1,7 +1,7 @@
 basic:
   checkpoint: null # set to -1 to load last saved model
-  headless: true
-  max_iterations: 5000 # set the maximum number of learning iterations to train for
+  headless: false
+  max_iterations: 10000 # set the maximum number of learning iterations to train for
   sim_device: "cuda:0" # device for physics simulation
   rl_device: "cuda:0" # device for the RL algorithm
   seed: 42 # seed - set to -1 to choose random seed
@@ -15,7 +15,6 @@ env:
   env_spacing: 1.  # not used with plane terrain
 
 runner:
-  num_stack: 50
   horizon_length: 24
   mini_epochs: 20
   save_interval: 100
@@ -29,19 +28,16 @@ viewer:
   record_env_idx: 0
 
 algorithm:
-  num_embedding: 8   # check this
   learning_rate: 1.e-5
   gamma: 0.995
   lam: 0.95
   bound_coef: 1.0
-  denoising_coef: 1.0
-  embedding_norm_coef: 1.0
   entropy_coef: -0.01
   symmetric_coef: 10.
   desired_kl: 0.01
 
 sim:
-  dt: 0.002 # Hz
+  dt: 0.002
   substeps: 1
   up_axis: "z"
   gravity: [0.0, 0.0, -9.81]
@@ -97,12 +93,12 @@ init_state:
     "Waist": 0.0,
     "Shoulder_Pitch": 0.0,
     "Shoulder_Roll": 0.0,
-    "Elbow_Pitch": 0.0,
+    "Elbow_Pitch": 0.8,
     "Elbow_Yaw": 0.0,
-    "default": 0.} # target angles when action = 0.0
+    "default": 0.}
 
 control:
-  stiffness: {"Hip": 200., "Knee": 200., "Ankle": 50., "Waist": 150., "Shoulder": 100., "Elbow": 80.} # [N*m/rad]
+  stiffness: {"Hip": 200., "Knee": 200., "Ankle": 50., "Waist": 150., "Shoulder": 20., "Elbow": 20.} # [N*m/rad]
   damping: {"Hip": 5., "Knee": 5., "Ankle": 1., "Waist": 5., "Shoulder": 2., "Elbow": 2.,} # [N*m*s/rad]
   action_scale: 1.
   decimation: 10

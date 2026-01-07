@@ -6,7 +6,6 @@ import select
 import argparse
 import numpy as np
 import torch
-import torch.jit
 import mujoco, mujoco.viewer
 from utils.model import *
 
@@ -18,10 +17,6 @@ def quat_rotate_inverse(q, v):
     b = np.cross(q_vec, v) * (q_w * 2.0)
     c = q_vec * (np.dot(q_vec, v) * 2.0)
     return a - b + c
-
-def get_privileged_obs(linear_vel):
-    base_mass_scaled = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32)
-    base_lin
 
 
 if __name__ == "__main__":
@@ -35,13 +30,12 @@ if __name__ == "__main__":
     if args.checkpoint is not None:
         cfg["basic"]["checkpoint"] = args.checkpoint
 
-    model = RMA(cfg["env"]["num_actions"], cfg["env"]["num_observations"], cfg["runner"]["num_stack"], cfg["env"]["num_privileged_obs"], cfg["algorithm"]["num_embedding"])
+    model = ActorCritic(cfg["env"]["num_actions"], cfg["env"]["num_observations"], cfg["env"]["num_privileged_obs"])
     if not cfg["basic"]["checkpoint"] or (cfg["basic"]["checkpoint"] == "-1") or (cfg["basic"]["checkpoint"] == -1):
         cfg["basic"]["checkpoint"] = sorted(glob.glob(os.path.join("logs", "**/*.pth"), recursive=True), key=os.path.getmtime)[-1]
     print("Loading model from {}".format(cfg["basic"]["checkpoint"]))
-    checkpoint = torch.load(cfg["basic"]["checkpoint"], map_location="cpu")
-    model.load_state_dict(checkpoint["model"])
-    model.eval() # Set the model to evaluation mode a
+    model_dict = torch.load(cfg["basic"]["checkpoint"], map_location="cpu", weights_only=True)
+    model.load_state_dict(model_dict["model"])
 
     mj_model = mujoco.MjModel.from_xml_path(cfg["asset"]["mujoco_file"])
     mj_model.opt.timestep = cfg["sim"]["dt"]
@@ -50,7 +44,6 @@ if __name__ == "__main__":
     default_dof_pos = np.zeros(mj_model.nu, dtype=np.float32)
     dof_stiffness = np.zeros(mj_model.nu, dtype=np.float32)
     dof_damping = np.zeros(mj_model.nu, dtype=np.float32)
-    base_mass_scaled = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32) # no scaling
     for i in range(mj_model.nu):
         found = False
         for name in cfg["init_state"]["default_joint_angles"].keys():
@@ -108,7 +101,6 @@ if __name__ == "__main__":
             dof_vel = mj_data.qvel.astype(np.float32)[6:]
             quat = mj_data.sensor("orientation").data[[1, 2, 3, 0]].astype(np.float32)
             base_ang_vel = mj_data.sensor("angular-velocity").data.astype(np.float32)
-            base_linear_vel = mj_data.sensor("linear-velocity").data.astype(np.float32)
             projected_gravity = quat_rotate_inverse(quat, np.array([0.0, 0.0, -1.0]))
             if it % cfg["control"]["decimation"] == 0:
                 obs = np.zeros(cfg["env"]["num_observations"], dtype=np.float32)
@@ -122,26 +114,11 @@ if __name__ == "__main__":
                 obs[11:32] = (dof_pos - default_dof_pos) * cfg["normalization"]["dof_pos"]
                 obs[32:53] = dof_vel * cfg["normalization"]["dof_vel"]
                 obs[53:74] = actions
-
-                # privileged obs
-                base_lin_vel = mj_data.sensor("linear-velocity").data.astype(np.float32)
-                base_height = mj_data.qpos[2] - 0.0  
-                push_force = np.zeros(3, dtype=np.float32)   # No external forces
-                push_torque = np.zeros(3, dtype=np.float32)  # No external torques
-                pri = np.zeros(cfg["env"]["num_privileged_obs"], dtype=np.float32)
-                pri[0:4] = base_mass_scaled
-                pri[4:7] = base_lin_vel * cfg["normalization"]["lin_vel"]
-                pri[7] = base_height  
-                pri[8:11] = push_force * cfg["normalization"]["push_force"]
-                pri[11:14] = push_torque * cfg["normalization"]["push_torque"]                
-
-
                 dist = model.act(torch.tensor(obs).unsqueeze(0),privileged_obs=torch.tensor(pri))
                 if hasattr(dist, "loc"):
                     actions[:] = dist.loc.detach().numpy()
                 else:
                     actions[:] = dist.detach().numpy()
-
                 actions[:] = np.clip(actions, -cfg["normalization"]["clip_actions"], cfg["normalization"]["clip_actions"])
                 dof_targets[:] = default_dof_pos + cfg["control"]["action_scale"] * actions
             mj_data.ctrl = np.clip(
@@ -154,6 +131,3 @@ if __name__ == "__main__":
             viewer.sync()
             it += 1
             gait_process = np.fmod(gait_process + cfg["sim"]["dt"] * gait_frequency, 1.0)
-
-
-
