@@ -233,11 +233,7 @@ class AdaptationRunner:
             
             mean_adapt_loss /= num_mini_epochs
             mean_cosine_sim /= num_mini_epochs
-            
-            # Compute episode statistics
-            mean_ep_reward = np.mean(self.recent_episode_rewards) if self.recent_episode_rewards else 0.0
-            mean_ep_length = np.mean(self.recent_episode_lengths) if self.recent_episode_lengths else 0.0
-            
+                
             # Record statistics
             self.recorder.record_statistics(
                 {
