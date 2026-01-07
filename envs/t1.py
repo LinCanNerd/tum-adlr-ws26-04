@@ -136,6 +136,12 @@ class T1(BaseTask):
             self.envs.append(env_handle)
             self.actor_handles.append(actor_handle)
 
+            #shoulder and hip index
+            self.left_shoulder_idx = self.gym.find_actor_dof_index(env_handle, actor_handle, "Left_Shoulder_Pitch", gymapi.DOMAIN_ACTOR)
+            self.left_hip_idx = self.gym.find_actor_dof_index(env_handle, actor_handle, "Left_Hip_Pitch", gymapi.DOMAIN_ACTOR)
+            self.right_shoulder_idx = self.gym.find_actor_dof_index(env_handle, actor_handle, "Right_Shoulder_Pitch", gymapi.DOMAIN_ACTOR)
+            self.right_hip_idx = self.gym.find_actor_dof_index(env_handle, actor_handle, "Right_Hip_Pitch", gymapi.DOMAIN_ACTOR)
+
     def _process_rigid_body_props(self, props, i):
         for j in range(self.num_bodies):
             if j == self.base_indice:
@@ -735,7 +741,7 @@ class T1(BaseTask):
         left_swing = (torch.abs(self.gait_process - 0.25) < 0.5 * self.cfg["rewards"]["swing_period"]) & (self.gait_frequency > 1.0e-8)
         right_swing = (torch.abs(self.gait_process - 0.75) < 0.5 * self.cfg["rewards"]["swing_period"]) & (self.gait_frequency > 1.0e-8)
         return (left_swing & ~self.feet_contact[:, 0]).float() + (right_swing & ~self.feet_contact[:, 1]).float()
-        
+
     def _reward_arm_swing(self):
         """
         Penalize if (Shoulder + Hip) != 0.
