@@ -50,17 +50,6 @@
     <geom size="0.09 0.09" pos="0.055 0.022 0.1" type="capsule" quat="0.997189 -0.074930 0 0" class="collision" name="torso_left"/>
     <geom size="0.09 0.09" pos="0.055 -0.022 0.1" type="capsule" quat="0.997189 0.074930 0 0" class="collision" name="torso_right"/>
     <freejoint/>
-    <body name="H1" pos="0.0625 0 0.243">
-      <inertial pos="-0.000508 -0.001403 0.057432" quat="0.763881 -0.0132172 0.00173419 0.645219" mass="0.44391" diaginertia="0.000241549 0.00022351 0.000149941"/>
-      <joint name="AAHead_yaw" pos="0 0 0" axis="0 0 1" range="-1.57 1.57" actuatorfrcrange="-7 7"/>
-      <geom class="visual" material="gray" mesh="H1"/>
-      <body name="H2" pos="0 0 0.06185">
-        <inertial pos="0.007802 0.001262 0.098631" quat="0.988453 0.106172 -0.0745686 -0.0782786" mass="0.631019" diaginertia="0.00203553 0.00192467 0.00172381"/>
-        <joint name="Head_pitch" pos="0 0 0" axis="0 1 0" range="-0.35 1.22" actuatorfrcrange="-7 7"/>
-        <geom class="visual" material="gray" mesh="H2"/>
-        <geom size="0.08" pos="0.01 0 0.11" class="collision" name="head"/>
-      </body>
-    </body>
     <body name="AL1" pos="0.0575 0.1063 0.219" quat="1 0 0.000440565 0">
       <inertial pos="-0.000677 0.044974 0" quat="0.50423 0.495734 -0.50423 0.495734" mass="0.53" diaginertia="0.001367 0.00129329 0.000292711"/>
       <joint name="Left_Shoulder_Pitch" pos="0 0 0" axis="0 1 0" range="-3.31 1.22" actuatorfrcrange="-18 18"/>
@@ -182,8 +171,6 @@
   </worldbody>
 
   <actuator>
-    <motor name="AAHead_yaw" joint="AAHead_yaw" ctrllimited="true" ctrlrange="-7 7" gear="1" />
-    <motor name="Head_pitch" joint="Head_pitch" ctrllimited="true" ctrlrange="-7 7" gear="1" />
     <motor name="Left_Shoulder_Pitch" joint="Left_Shoulder_Pitch" ctrllimited="true" ctrlrange="-18 18" gear="1" />
     <motor name="Left_Shoulder_Roll" joint="Left_Shoulder_Roll" ctrllimited="true" ctrlrange="-18 18" gear="1" />
     <motor name="Left_Elbow_Pitch" joint="Left_Elbow_Pitch" ctrllimited="true" ctrlrange="-18 18" gear="1" />
