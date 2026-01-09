@@ -114,7 +114,7 @@ if __name__ == "__main__":
                 obs[11:32] = (dof_pos - default_dof_pos) * cfg["normalization"]["dof_pos"]
                 obs[32:53] = dof_vel * cfg["normalization"]["dof_vel"]
                 obs[53:74] = actions
-                dist = model.act(torch.tensor(obs).unsqueeze(0),privileged_obs=torch.tensor(pri))
+                dist = model.act(torch.tensor(obs).unsqueeze(0))
                 if hasattr(dist, "loc"):
                     actions[:] = dist.loc.detach().numpy()
                 else:

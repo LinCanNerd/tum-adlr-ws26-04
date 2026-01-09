@@ -93,7 +93,7 @@ init_state:
     "Waist": 0.0,
     "Shoulder_Pitch": 0.0,
     "Shoulder_Roll": 0.0,
-    "Elbow_Pitch": 0.8,
+    "Elbow_Pitch": 0.0,
     "Elbow_Yaw": 0.0,
     "default": 0.}
 
