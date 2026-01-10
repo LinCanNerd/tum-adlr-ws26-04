@@ -68,11 +68,11 @@
           <geom size="0.08" pos="0.01 0 0.11" class="collision" name="head"/>
         </body>
       </body>
-      <body name="AL1" pos="0.0575 0.1063 0.219" quat="1 0 0.000440565 0">
+      <body name="AL1" pos="0.0575 0.1063 0.219" euler="0 0.2 0">
         <inertial pos="-0.000677 0.044974 0" quat="0.50423 0.495734 -0.50423 0.495734" mass="0.53" diaginertia="0.001367 0.00129329 0.000292711"/>
         <joint name="Left_Shoulder_Pitch" pos="0 0 0" axis="0 1 0" range="-3.31 1.22" actuatorfrcrange="-18 18"/>
         <geom class="visual" material="gray" mesh="AL1"/>
-        <body name="AL2" pos="0 0.047 0">
+        <body name="AL2" pos="0 0.047 0" euler="-1.35 0 0">
           <inertial pos="0.003862 0.037976 0" quat="0.487991 0.511727 -0.487991 0.511727" mass="0.16" diaginertia="0.000401 0.00034538 0.00017662"/>
           <joint name="Left_Shoulder_Roll" pos="0 0 0" axis="1 0 0" range="-1.74 1.57" actuatorfrcrange="-18 18"/>
           <geom class="visual" material="gray" mesh="AL2"/>
@@ -81,7 +81,7 @@
             <joint name="Left_Elbow_Pitch" pos="0 0 0" axis="0 1 0" range="-2.27 2.27" actuatorfrcrange="-18 18"/>
             <geom class="visual" material="gray" mesh="AL3"/>
             <geom size="0.03 0.075" pos="0 0.05 0" quat="0.707105 0.707108 0 0" type="capsule" class="collision" name="left_forearm"/>
-            <body name="left_hand_link" pos="0 0.1471 0">
+            <body name="left_hand_link" pos="0 0.1471 0" euler="0 0 -0.5">
               <inertial pos="-0.000108 0.109573 0.000591" quat="0.707866 0.706347 -5.22939e-05 -0.000214913" mass="0.327214" diaginertia="0.008159 0.00813104 0.000214962"/>
               <joint name="Left_Elbow_Yaw" pos="0 0 0" axis="0 0 1" range="-2.44 0" actuatorfrcrange="-18 18"/>
               <geom class="visual" material="gray" mesh="left_hand_link"/>
@@ -90,11 +90,11 @@
           </body>
         </body>
       </body>
-      <body name="AR1" pos="0.0575 -0.1063 0.219" quat="1 0 0.000440565 0">
+      <body name="AR1" pos="0.0575 -0.1063 0.219" euler="0 0.2 0">
         <inertial pos="-0.000677 -0.044974 0" quat="0.50423 0.495734 -0.50423 0.495734" mass="0.53" diaginertia="0.001367 0.00129329 0.000292711"/>
         <joint name="Right_Shoulder_Pitch" pos="0 0 0" axis="0 1 0" range="-3.31 1.22" actuatorfrcrange="-18 18"/>
         <geom class="visual" material="gray" mesh="AR1"/>
-        <body name="AR2" pos="0 -0.047 0">
+        <body name="AR2" pos="0 -0.047 0" euler="1.35 0 0">
           <inertial pos="0.003862 -0.037976 0" quat="0.511727 0.487991 -0.511727 0.487991" mass="0.16" diaginertia="0.000401 0.00034538 0.00017662"/>
           <joint name="Right_Shoulder_Roll" pos="0 0 0" axis="1 0 0" range="-1.57 1.74" actuatorfrcrange="-18 18"/>
           <geom class="visual" material="gray" mesh="AR2"/>
@@ -103,7 +103,7 @@
             <joint name="Right_Elbow_Pitch" pos="0 0 0" axis="0 1 0" range="-2.27 2.27" actuatorfrcrange="-18 18"/>
             <geom class="visual" material="gray" mesh="AR3"/>
             <geom size="0.03 0.075" pos="0 -0.05 0" quat="0.707105 0.707108 0 0" type="capsule" class="collision" name="right_forearm"/>
-            <body name="right_hand_link" pos="0 -0.1471 0">
+            <body name="right_hand_link" pos="0 -0.1471 0" euler="0 0 0.5">
               <inertial pos="-0.000108 -0.109573 0.000591" quat="0.706347 0.707866 0.000214913 5.22939e-05" mass="0.327214" diaginertia="0.008159 0.00813104 0.000214962"/>
               <joint name="Right_Elbow_Yaw" pos="0 0 0" axis="0 0 1" range="0 2.44" actuatorfrcrange="-18 18"/>
               <geom class="visual" material="gray" mesh="right_hand_link"/>

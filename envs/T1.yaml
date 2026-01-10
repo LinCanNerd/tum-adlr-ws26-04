@@ -91,9 +91,9 @@ init_state:
     "Knee_Pitch": 0.4,
     "Ankle_Pitch": -0.25,
     "Waist": 0.0,
-    "Shoulder_Pitch": 0.2,
+    "Shoulder_Pitch": 0.1,
     "Shoulder_Roll": 0.0,
-    "Elbow_Pitch": 0.6,
+    "Elbow_Pitch": 0.,
     "Elbow_Yaw": 0.0,
     "default": 0.} # target angles when action = 0.0
 
