@@ -52,7 +52,7 @@
     <light directional="true" diffuse=".4 .4 .4" specular="0.1 0.1 0.1" pos="0 0 5.0" dir="0 0 -1" castshadow="false" />
     <light directional="true" diffuse=".6 .6 .6" specular="0.2 0.2 0.2" pos="0 0 4" dir="0 0 -1" />
     <geom name="ground" type="plane" pos="0 0 0" size="0 0 1" material="matplane" condim="1"/>
-    <body name="Trunk" pos="0 0 1.68">
+    <body name="Trunk" pos="0 0 0.7">
       <inertial pos="0.054281 8.47449e-06 0.0893932" quat="0.999999 -0.000254757 -0.00132228 -0.000215148" mass="19.4304" diaginertia="0.502019 0.3531 0.207324" />
       <site name='imu' size='0.01' pos='0.0 0.0 0.0' />
       <geom class="visual" material="gray" mesh="Trunk"/>

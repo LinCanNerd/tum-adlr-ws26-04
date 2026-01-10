@@ -91,11 +91,11 @@ init_state:
     "Knee_Pitch": 0.4,
     "Ankle_Pitch": -0.25,
     "Waist": 0.0,
-    "Shoulder_Pitch": 0.25,
-    "Shoulder_Roll": 0.05,
-    "Elbow_Pitch": 0.35,
+    "Shoulder_Pitch": 0.2,
+    "Shoulder_Roll": 0.0,
+    "Elbow_Pitch": 0.6,
     "Elbow_Yaw": 0.0,
-    "default": 0.}
+    "default": 0.} # target angles when action = 0.0
 
 control:
   stiffness: {"Hip": 200., "Knee": 200., "Ankle": 50., "Waist": 150., "Shoulder": 20., "Elbow": 20.} # [N*m/rad]
