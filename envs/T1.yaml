@@ -57,8 +57,8 @@ sim:
     contact_collection: 1 # 0: CC_NEVER (don't collect contact info), 1: CC_LAST_SUBSTEP (collect only contacts on last substep), 2: CC_ALL_SUBSTEPS (broken - do not use!)
 
 asset:
-  file: "resources/T1/T1_serial.urdf"
-  mujoco_file: "resources/T1/T1_serial.xml"
+  file: "resources/T1/T1_fullbody.urdf"
+  mujoco_file: "resources/T1/T1_fullbody.xml"
   name: "T1"
   base_name: "Trunk"
   foot_names: ["left_foot_link", "right_foot_link"]
@@ -91,7 +91,7 @@ init_state:
     "Knee_Pitch": 0.4,
     "Ankle_Pitch": -0.25,
     "Waist": 0.0,
-    "Shoulder_Pitch": 0.1,
+    "Shoulder_Pitch": 0.0,
     "Shoulder_Roll": 0.0,
     "Elbow_Pitch": 0.,
     "Elbow_Yaw": 0.0,
