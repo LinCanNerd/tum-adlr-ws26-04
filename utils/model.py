@@ -30,11 +30,9 @@ class RMA(torch.nn.Module):
             torch.nn.Linear(num_embedding, num_embedding),
         )
         self.adaptation_module = torch.nn.Sequential(
-            torch.nn.Linear(num_obs + obs_stacking, 1024),
+            torch.nn.Linear(num_obs * obs_stacking, 1024),
             torch.nn.ELU(),
-            torch.nn.Linear(1024, 512),
-            torch.nn.ELU(),
-            torch.nn.Linear(512, 128),
+            torch.nn.Linear(1024, 128),
             torch.nn.ELU(),
             torch.nn.Linear(128, num_embedding),
         )

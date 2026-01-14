@@ -45,7 +45,7 @@ class AdaptationRunner:
         self.model = RMA(
             self.env.num_actions, 
             self.env.num_obs, 
-            obs_stacking=self.cfg["runner"]["num_stack"] * self.env.num_obs,
+            obs_stacking=self.cfg["runner"]["num_stack"],
             num_privileged_obs=self.env.num_privileged_obs, 
             num_embedding=self.cfg["algorithm"]["num_embedding"]
         ).to(self.device)
@@ -65,10 +65,16 @@ class AdaptationRunner:
 
         # Setup buffer (similar to Runner)
         self.buffer = ExperienceBuffer(self.cfg["runner"]["horizon_length"], self.env.num_envs, self.device)
+        self.buffer.add_buffer("actions", (self.env.num_actions,))
         self.buffer.add_buffer("obses", (self.env.num_obs,))
         self.buffer.add_buffer("privileged_obses", (self.env.num_privileged_obs,))
-        self.buffer.add_buffer("stacked_obses", (self.env.num_stack, self.env.num_obs))
+        self.buffer.add_buffer("mirrored_obses", (self.env.num_obs,))
+        self.buffer.add_buffer("mirrored_privileged_obses", (self.env.num_privileged_obs,))
+        self.buffer.add_buffer("stacked_obses",(self.env.num_stack, self.env.num_obs))
+        self.buffer.add_buffer("mirrored_stacked_obses",(self.env.num_stack, self.env.num_obs))
+        self.buffer.add_buffer("rewards", ())
         self.buffer.add_buffer("dones", (), dtype=bool)
+        self.buffer.add_buffer("time_outs", (), dtype=bool)
 
     def _get_args(self):
         parser = argparse.ArgumentParser(description="RMA Phase 2: Adaptation Module Training")
@@ -149,9 +155,22 @@ class AdaptationRunner:
             param.requires_grad = False
         self.model.logstd.requires_grad = False
         
+        # Print parameter counts per module
+        critic_params = sum(p.numel() for p in self.model.critic.parameters())
+        actor_params = sum(p.numel() for p in self.model.actor.parameters())
+        encoder_params = sum(p.numel() for p in self.model.privileged_encoder.parameters())
+        adapt_params = sum(p.numel() for p in self.model.adaptation_module.parameters())
+        logstd_params = self.model.logstd.numel()
+        
+        print(f"Critic parameters:      {critic_params:,}")
+        print(f"Actor parameters:       {actor_params:,}")
+        print(f"Priv. encoder params:   {encoder_params:,}")
+        print(f"Adaptation params:      {adapt_params:,}")
+        print(f"Logstd parameters:      {logstd_params:,}")
+        
         trainable = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         total = sum(p.numel() for p in self.model.parameters())
-        print(f"Trainable parameters: {trainable:,} / {total:,}")
+        print(f"Trainable parameters:   {trainable:,} / {total:,}")
 
     def train(self):
         self.recorder = Recorder(self.cfg)
@@ -166,10 +185,16 @@ class AdaptationRunner:
         for it in range(self.cfg["basic"]["max_iterations"]):
             # Collect rollout data
             for n in range(self.cfg["runner"]["horizon_length"]):
+                mirrored_obs = self.env.mirror_obs(obs)
+                mirrored_privileged_obs = self.env.mirror_priv(privileged_obs)
+
                 self.buffer.update_data("obses", n, obs)
                 self.buffer.update_data("privileged_obses", n, privileged_obs)
                 self.buffer.update_data("stacked_obses", n, stacked_obs)
-                
+                self.buffer.update_data("mirrored_obses", n, mirrored_obs)
+                self.buffer.update_data("mirrored_privileged_obses", n, mirrored_privileged_obs)
+                #self.buffer.update_data("mirrored_stacked_obses", n, mirrored_stacked_obs)
+                                
                 # Get action from frozen policy using privileged encoder
                 with torch.no_grad():
                     dist, _ = self.model.act(obs, privileged_obs=privileged_obs)
@@ -187,9 +212,11 @@ class AdaptationRunner:
                 done = done.to(self.device)
                 privileged_obs = infos["privileged_obs"].to(self.device)
                 stacked_obs = infos["stacked_obs"].to(self.device)
-                
+                self.buffer.update_data("actions", n, act)
+                self.buffer.update_data("rewards", n, rew)
                 self.buffer.update_data("dones", n, done)
-                
+                self.buffer.update_data("time_outs", n, infos["time_outs"].to(self.device))
+
                 ep_info = {"reward": rew}
                 ep_info.update(infos["rew_terms"])
                 self.recorder.record_episode_statistics(
@@ -201,17 +228,12 @@ class AdaptationRunner:
             mean_adapt_loss = 0.0
             mean_cosine_sim = 0.0
             
-            num_mini_epochs = self.cfg["runner"].get("adapt_mini_epochs", self.cfg["runner"]["mini_epochs"])
-            
-            for _ in range(num_mini_epochs):
+            for _ in range(self.cfg["runner"]["mini_epochs"]):
                 # Get target embedding from frozen privileged encoder
                 with torch.no_grad():
-                    target_embedding = self.model.privileged_encoder(self.buffer["privileged_obses"])
+                    _, target_embedding = self.model.act(self.buffer["obses"], privileged_obs=self.buffer["privileged_obses"])
                 
-                # Get predicted embedding from adaptation module
-                # stacked_obs shape: [horizon, num_envs, num_stack, num_obs]
-                stacked_flat = self.buffer["stacked_obses"].flatten(start_dim=-2)  # [horizon, num_envs, num_stack * num_obs]
-                predicted_embedding = self.model.adaptation_module(stacked_flat)
+                _, predicted_embedding = self.model.act(self.buffer["obses"], stacked_obs=self.buffer["stacked_obses"])
                 
                 # MSE loss
                 adapt_loss = F.mse_loss(predicted_embedding, target_embedding)
@@ -231,8 +253,8 @@ class AdaptationRunner:
                     ).mean()
                     mean_cosine_sim += cosine_sim.item()
             
-            mean_adapt_loss /= num_mini_epochs
-            mean_cosine_sim /= num_mini_epochs
+            mean_adapt_loss /= self.cfg["runner"]["mini_epochs"]
+            mean_cosine_sim /= self.cfg["runner"]["mini_epochs"]
                 
             # Record statistics
             self.recorder.record_statistics(
@@ -259,6 +281,7 @@ class AdaptationRunner:
                     it + 1,
                 )
             
+            print("epoch: {}/{}".format(it + 1, self.cfg["basic"]["max_iterations"]))
 
 
 if __name__ == "__main__":
