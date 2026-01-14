@@ -318,15 +318,6 @@
           rgba="0.4 0.4 0.4 0.3" />
       </material>
     </visual>
-    <collision>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="meshes/left_hand_link.STL" />
-      </geometry>
-    </collision>
   </link>
   <joint
     name="Left_Elbow_Yaw"
@@ -523,15 +514,6 @@ xyz="-0.000108 -0.109573 0.000591"
           rgba="0.4 0.4 0.4 0.3" />
       </material>
     </visual>
-    <collision>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="meshes/right_hand_link.STL" />
-      </geometry>
-    </collision>
   </link>
   <joint
     name="Right_Elbow_Yaw"

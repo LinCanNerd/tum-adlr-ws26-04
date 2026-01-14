@@ -55,7 +55,11 @@ class T1(BaseTask):
         self.num_dofs = self.gym.get_asset_dof_count(robot_asset)
         self.num_bodies = self.gym.get_asset_rigid_body_count(robot_asset)
         self.dof_names = self.gym.get_asset_dof_names(robot_asset)
-
+        print("="*50)
+        print("IsaacGym DOF order:")
+        for i, name in enumerate(self.dof_names):
+            print(f"  {i}: {name}")
+        print("="*50)
         dof_props_asset = self.gym.get_asset_dof_properties(robot_asset)
         self.dof_pos_limits = torch.zeros(self.num_dofs, 2, dtype=torch.float, device=self.device)
         self.dof_vel_limits = torch.zeros(self.num_dofs, dtype=torch.float, device=self.device)
