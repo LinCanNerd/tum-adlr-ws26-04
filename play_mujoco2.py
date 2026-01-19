@@ -19,6 +19,120 @@ def quat_rotate_inverse(q, v):
     c = q_vec * (np.dot(q_vec, v) * 2.0)
     return a - b + c
 
+def mirror_obs(obs):
+    """
+    Mirror observations for left-right symmetry (numpy version).
+    Supports both 1D (74,) and 2D (batch, 74) inputs.
+    
+    Joint order (indices 11-31 for pos, 32-52 for vel, 53-73 for actions):
+    0: Left_Shoulder_Pitch    8: Waist              16: Right_Hip_Roll
+    1: Left_Shoulder_Roll     9: Left_Hip_Pitch     17: Right_Hip_Yaw
+    2: Left_Elbow_Pitch      10: Left_Hip_Roll      18: Right_Knee_Pitch
+    3: Left_Elbow_Yaw        11: Left_Hip_Yaw       19: Right_Ankle_Pitch
+    4: Right_Shoulder_Pitch  12: Left_Knee_Pitch    20: Right_Ankle_Roll
+    5: Right_Shoulder_Roll   13: Left_Ankle_Pitch
+    6: Right_Elbow_Pitch     14: Left_Ankle_Roll
+    7: Right_Elbow_Yaw       15: Right_Hip_Pitch
+    """
+    mirrored = obs.copy()
+
+    # Gravity (0:3) - mirror y component
+    mirrored[..., 1] *= -1  # gy
+
+    # Angular velocity (3:6) - mirror x and z components
+    mirrored[..., 3] *= -1  # wx (roll rate)
+    mirrored[..., 5] *= -1  # wz (yaw rate)
+
+    # Commands (6:9) - mirror y velocity and yaw
+    mirrored[..., 7] *= -1  # vy
+    mirrored[..., 8] *= -1  # vyaw
+
+    # Gait phase (9:11) - negate for phase shift by PI (swap stance/swing leg)
+    mirrored[..., 9] *= -1   # cos_phase
+    mirrored[..., 10] *= -1  # sin_phase
+
+    # DOF positions (11:32), DOF velocities (32:53), Actions (53:74)
+    # Each block has 21 DOFs
+    for start_idx in [11, 32, 53]:
+        # Swap left arm (0-3) with right arm (4-7)
+        left_arm = mirrored[..., start_idx+0:start_idx+4].copy()
+        right_arm = mirrored[..., start_idx+4:start_idx+8].copy()
+        mirrored[..., start_idx+0:start_idx+4] = right_arm
+        mirrored[..., start_idx+4:start_idx+8] = left_arm
+
+        # Negate roll and yaw for arms (after swap)
+        # Index 1: Shoulder_Roll, Index 3: Elbow_Yaw
+        mirrored[..., start_idx+1] *= -1  # Left Shoulder Roll (was Right)
+        mirrored[..., start_idx+3] *= -1  # Left Elbow Yaw (was Right)
+        mirrored[..., start_idx+5] *= -1  # Right Shoulder Roll (was Left)
+        mirrored[..., start_idx+7] *= -1  # Right Elbow Yaw (was Left)
+
+        # Waist (index 8) - negate (yaw motion)
+        mirrored[..., start_idx+8] *= -1
+
+        # Swap left leg (9-14) with right leg (15-20)
+        left_leg = mirrored[..., start_idx+9:start_idx+15].copy()
+        right_leg = mirrored[..., start_idx+15:start_idx+21].copy()
+        mirrored[..., start_idx+9:start_idx+15] = right_leg
+        mirrored[..., start_idx+15:start_idx+21] = left_leg
+
+        # Negate roll and yaw for legs (after swap)
+        # Leg order: Hip_Pitch(0), Hip_Roll(1), Hip_Yaw(2), Knee_Pitch(3), Ankle_Pitch(4), Ankle_Roll(5)
+        mirrored[..., start_idx+10] *= -1  # Left Hip Roll (was Right)
+        mirrored[..., start_idx+11] *= -1  # Left Hip Yaw (was Right)
+        mirrored[..., start_idx+14] *= -1  # Left Ankle Roll (was Right)
+        mirrored[..., start_idx+16] *= -1  # Right Hip Roll (was Left)
+        mirrored[..., start_idx+17] *= -1  # Right Hip Yaw (was Left)
+        mirrored[..., start_idx+20] *= -1  # Right Ankle Roll (was Left)
+
+    return mirrored
+
+
+def mirror_act(actions):
+    """
+    Mirror actions (numpy version).
+    Supports both 1D (21,) and 2D (batch, 21) inputs.
+    
+    Action order (21 DOFs):
+    0-3:   Left arm  (Shoulder_P, Shoulder_R, Elbow_P, Elbow_Y)
+    4-7:   Right arm (Shoulder_P, Shoulder_R, Elbow_P, Elbow_Y)
+    8:     Waist
+    9-14:  Left leg  (Hip_P, Hip_R, Hip_Y, Knee_P, Ankle_P, Ankle_R)
+    15-20: Right leg (Hip_P, Hip_R, Hip_Y, Knee_P, Ankle_P, Ankle_R)
+    """
+    mirrored = actions.copy()
+
+    # Swap left arm (0-3) with right arm (4-7)
+    left_arm = mirrored[..., 0:4].copy()
+    right_arm = mirrored[..., 4:8].copy()
+    mirrored[..., 0:4] = right_arm
+    mirrored[..., 4:8] = left_arm
+
+    # Negate roll and yaw for arms (after swap)
+    mirrored[..., 1] *= -1  # Left Shoulder Roll (was Right)
+    mirrored[..., 3] *= -1  # Left Elbow Yaw (was Right)
+    mirrored[..., 5] *= -1  # Right Shoulder Roll (was Left)
+    mirrored[..., 7] *= -1  # Right Elbow Yaw (was Left)
+
+    # Waist (index 8) - negate
+    mirrored[..., 8] *= -1
+
+    # Swap left leg (9-14) with right leg (15-20)
+    left_leg = mirrored[..., 9:15].copy()
+    right_leg = mirrored[..., 15:21].copy()
+    mirrored[..., 9:15] = right_leg
+    mirrored[..., 15:21] = left_leg
+
+    # Negate roll and yaw for legs (after swap)
+    mirrored[..., 10] *= -1  # Left Hip Roll (was Right)
+    mirrored[..., 11] *= -1  # Left Hip Yaw (was Right)
+    mirrored[..., 14] *= -1  # Left Ankle Roll (was Right)
+    mirrored[..., 16] *= -1  # Right Hip Roll (was Left)
+    mirrored[..., 17] *= -1  # Right Hip Yaw (was Left)
+    mirrored[..., 20] *= -1  # Right Ankle Roll (was Left)
+
+    return mirrored
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
