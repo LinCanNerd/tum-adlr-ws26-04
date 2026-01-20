@@ -193,7 +193,7 @@ class AdaptationRunner:
                 self.buffer.update_data("stacked_obses", n, stacked_obs)
                 self.buffer.update_data("mirrored_obses", n, mirrored_obs)
                 self.buffer.update_data("mirrored_privileged_obses", n, mirrored_privileged_obs)
-                #self.buffer.update_data("mirrored_stacked_obses", n, mirrored_stacked_obs)
+                self.buffer.update_data("mirrored_stacked_obses", n, mirrored_stacked_obs)
                                 
                 # Get action from frozen policy using privileged encoder
                 with torch.no_grad():
@@ -232,18 +232,22 @@ class AdaptationRunner:
                 # Get target embedding from frozen privileged encoder
                 with torch.no_grad():
                     _, target_embedding = self.model.act(self.buffer["obses"], privileged_obs=self.buffer["privileged_obses"])
+                    _, mirrored_target_embedding = self.model.act(self.buffer["mirrored_obses"], privileged_obs=self.buffer["mirrored_privileged_obses"])
                 
                 _, predicted_embedding = self.model.act(self.buffer["obses"], stacked_obs=self.buffer["stacked_obses"])
+                _, mirrored_predicted_embedding = self.model.act(self.buffer["mirrored_obses"], stacked_obs=self.buffer["mirrored_stacked_obses"])
                 
                 # MSE loss
                 adapt_loss = F.mse_loss(predicted_embedding, target_embedding)
-                
+                mirrored_adapt_loss = F.mse_loss(mirrored_predicted_embedding, mirrored_target_embedding)
+                tot_loss = (adapt_loss + mirrored_adapt_loss)/2
+
                 self.optimizer.zero_grad()
-                adapt_loss.backward()
+                tot_loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.model.adapt_parameters(), 1.0)
                 self.optimizer.step()
                 
-                mean_adapt_loss += adapt_loss.item()
+                mean_adapt_loss += tot_loss.item()
                 
                 with torch.no_grad():
                     cosine_sim = F.cosine_similarity(
