@@ -235,15 +235,15 @@ if __name__ == "__main__":
                 obs[53:74] = actions
 
                 if it == 0:
-                    stacked_obs[:] = obs[:, np.newaxis,:]
-                stacked_obs[:, 1:, :] = stacked_obs[:,:-1,:]
+                    stacked_obs[:] = obs[np.newaxis, np.newaxis, :]
+                stacked_obs[:, 1:, :] = stacked_obs[:, :-1, :]
                 stacked_obs[:, 0, :] = obs
 
                 mirrored_obs = mirror_obs(obs)
                 mirrored_stacked_obs = mirror_obs(stacked_obs)
 
-                dist, _ = model.act(torch.tensor(obs).unsqueeze(0),stacked_obs==torch.tensor(stacked_obs).unsqueeze(0))
-                mirrored_dist, _ = model.act(torch.tensor(mirrored_obs), stacked_obs=torch.tensor(mirrored_stacked_obs).unsqueeze(0))
+                dist, _ = model.act(torch.tensor(obs).unsqueeze(0), stacked_obs=torch.tensor(stacked_obs))
+                mirrored_dist, _ = model.act(torch.tensor(mirrored_obs).unsqueeze(0), stacked_obs=torch.tensor(mirrored_stacked_obs))
                 actions[:] = 0.5 * (dist.loc.detach().numpy() + mirror_act(mirrored_dist.loc.detach().numpy()))
                 if hasattr(dist, "loc"):
                     actions[:] = dist.loc.detach().numpy()
