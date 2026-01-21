@@ -1,5 +1,6 @@
 basic:
   checkpoint: null # set to -1 to load last saved model
+  encoder: null
   headless: true
   max_iterations: 10000 # set the maximum number of learning iterations to train for
   sim_device: "cuda:0" # device for physics simulation
@@ -29,7 +30,7 @@ viewer:
   record_env_idx: 0
 
 algorithm:
-  num_embedding: 64   # check this
+  num_embedding: 8   # check this
   learning_rate: 1.e-5
   gamma: 0.995
   lam: 0.95
@@ -91,18 +92,15 @@ init_state:
   lin_vel: [0.0, 0.0, 0.0]  # x,y,z [m/s]
   ang_vel: [0.0, 0.0, 0.0]  # x,y,z [rad/s]
   default_joint_angles: {
-      "Hip_Pitch": -0.2,
-      "Knee_Pitch": 0.4,
-      "Ankle_Pitch": -0.25,
-      "Waist": 0.0,
-      "Shoulder_Pitch": 0.0,
-      "Left_Shoulder_Roll": -1.35,   
-      "Right_Shoulder_Roll": 1.35,   
-      "Elbow_Pitch": 0.8,
-      "Left_Elbow_Yaw": -0.5,        
-      "Right_Elbow_Yaw": 0.5,       
-      "default": 0.
-  }
+    "Hip_Pitch": -0.2,
+    "Knee_Pitch": 0.4,
+    "Ankle_Pitch": -0.25,
+    "Waist": 0.0,
+    "Shoulder_Pitch": 0.0,
+    "Shoulder_Roll": 0.0,
+    "Elbow_Pitch": 0.8,
+    "Elbow_Yaw": 0.0,
+    "default": 0.} # target angles when action = 0.0
 
 control:
   stiffness: {"Hip": 200., "Knee": 200., "Ankle": 50., "Waist": 150., "Shoulder": 20., "Elbow": 20.} # [N*m/rad]
@@ -267,17 +265,17 @@ randomization:
 rewards:
   scales:
     survival: 0.25
-    tracking_lin_vel_x: 2.0
-    tracking_lin_vel_y: 2.0
-    tracking_ang_vel: 1.0
+    tracking_lin_vel_x: 1.0
+    tracking_lin_vel_y: 1.0
+    tracking_ang_vel: 0.5
     base_height: -20.
     orientation: -5.
     torques: -2.e-4
     torque_tiredness: -1.e-2
     power: -2.e-3
     lin_vel_z: -2.
-    ang_vel_xy: -0.5
-    dof_vel: -1.e-3
+    ang_vel_xy: -0.2
+    dof_vel: -1.e-4
     dof_acc: -1.e-7
     root_acc: -1.e-4
     action_rate: -1.
@@ -285,8 +283,8 @@ rewards:
     dof_vel_limits: -0.
     torque_limits: -0.
     collision: -1.
-    arm_swing: -1.
-    feet_slip: -1.
+    arm_swing: -2.
+    feet_slip: -0.1
     feet_vel_z: -0.
     feet_yaw_diff: -1.
     feet_yaw_mean: -1.
@@ -297,7 +295,7 @@ rewards:
   terminate_height: 0.45
   terminate_vel: 50.
   terminate_contacts_on: []
-  penalize_contacts_on: ["Trunk", "H1", "H2", "AL", "AR", "Waist", "Hip", "Shank", "Ankle","hand"]
+  penalize_contacts_on: ["Trunk", "H1", "H2", "AL", "AR", "Waist", "Hip", "Shank", "Ankle"]
   only_positive_rewards: true # if true negative total rewards are clipped at zero (avoids early termination problems)
   tracking_sigma: 0.25 # tracking reward = exp(-error^2/sigma)
   base_height_target: 0.68
