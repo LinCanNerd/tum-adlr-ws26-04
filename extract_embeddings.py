@@ -58,7 +58,7 @@ class EmbeddingExtractor:
         parser.add_argument("--task", required=True, type=str, help="Name of the task to run.")
         parser.add_argument("--model", required=True, type=str,
                           help="Path to trained checkpoint. Use -1 for latest.")
-        parser.add_argument("--num_samples", type=int, default=1000,
+        parser.add_argument("--num_samples", type=int, default=5000,
                           help="Number of samples to collect.")
         parser.add_argument("--sample_interval", type=int, default=10,
                           help="Save embeddings every N steps (default: 10).")
