@@ -58,7 +58,7 @@ sim:
 
 asset:
   file: "resources/T1/T1_locomotion.urdf"
-  mujoco_file: "resources/T1/T1_fullbody.xml"
+  mujoco_file: "resources/T1/T1_locomotion.xml"
   name: "T1"
   base_name: "Trunk"
   foot_names: ["left_foot_link", "right_foot_link"]
