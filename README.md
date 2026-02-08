@@ -1,10 +1,10 @@
 # An RMA-Based Approach for Booster T1 Running Control
 
-**TUM Advanced Deep Learning for Robotics (ADLR) — Winter Semester 2025/26**
-
+**TUM Advanced Deep Learning for Robotics (ADLR) — Winter Semester 2025/26**<br>
 **Authors:** Can Lin, Zhongxun Zhao
 
 This project implements a whole-body locomotion controller for the Booster T1 humanoid robot using Rapid Motor Adaptation (RMA). Built on top of [Booster Gym](https://github.com/BoosterRobotics/booster_gym), we extend the framework with a two-phase training pipeline that enables the robot to adapt online to varying physical conditions using only proprioceptive feedback.
+<br>
 [![real_T1_deploy](https://obs-cdn.boosterobotics.com/rl_deploy_demo_video_v3.gif)](https://obs-cdn.boosterobotics.com/rl_deploy_demo_video.mp4)
 ## RMA Pipeline
 
