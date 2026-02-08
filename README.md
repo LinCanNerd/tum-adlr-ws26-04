@@ -1,156 +1,183 @@
-# Booster Gym
+# An RMA-Based Approach for Booster T1 Running Control
 
-Booster Gym is a reinforcement learning (RL) framework designed for humanoid robot locomotion developed by [Booster Robotics](https://boosterobotics.com/).
+**TUM Advanced Deep Learning for Robotics (ADLR) — Winter Semester 2025/26**
 
-[![real_T1_deploy](https://obs-cdn.boosterobotics.com/rl_deploy_demo_video_v3.gif)](https://obs-cdn.boosterobotics.com/rl_deploy_demo_video.mp4)
+**Authors:** Can Lin, Zhongxun Zhao
 
-## Features
+This project implements a whole-body locomotion controller for the Booster T1 humanoid robot using Rapid Motor Adaptation (RMA). Built on top of [Booster Gym](https://github.com/BoosterRobotics/booster_gym), we extend the framework with a two-phase training pipeline that enables the robot to adapt online to varying physical conditions using only proprioceptive feedback.
 
-- **Complete Training-to-Deployment Pipeline**: Full support for training, evaluating, and deploying policies in simulation and on real robots.
-- **Sim-to-Real Transfer**: Including effective settings and techniques to minimize the sim-to-real gap and improve policy generalization.
-- **Customizable Environments and Algorithms**: Easily modify environments and RL algorithms to suit a wide range of tasks.
-- **Out-of-the-Box Booster T1 Support**: Pre-configured for quick setup and deployment on the Booster T1 robot.
+## RMA Pipeline
 
-## Overview
+<!-- Replace with your pipeline figure -->
+![RMA Pipeline](figs/rma.png)
 
-The framework supports the following stages for reinforcement learning:
+The training follows a two-phase Rapid Motor Adaptation strategy:
 
-1. **Training**: 
+- **Phase 1 (Expert):** A base policy is trained with access to privileged environment information (friction, mass, external forces) via an encoder that maps these into a compact latent embedding. The policy learns optimal behaviors conditioned on this embedding.
+- **Phase 2 (Student):** The base policy is frozen, and an adaptation module (1D ConvNet) is trained to regress the same latent embedding from a history of proprioceptive observations. This removes the dependency on privileged information at deployment time.
 
-    - Train reinforcement learning policies using Isaac Gym with parallelized environments.
+## Key Contributions
 
-2. **Playing**:
+- **Full-body control:** Unlike the Booster Gym baseline which locks upper-body DOFs, our policy actively controls all 21 joints including arms and torso.
+- **Two-phase RMA training:** Enables implicit online adaptation to environmental variations (friction, mass, disturbances) without explicit system identification.
+- **Symmetry loss:** An auxiliary loss that enforces left-right symmetric gaits, preventing convergence to asymmetric "limping" behaviors.
+- **Arm-swing synergy reward:** A novel reward term that encourages anti-phase coordination between ipsilateral arm and leg, producing bio-plausible angular momentum cancellation.
 
-    - **In-Simulation Testing**: Evaluate the trained policy in the same environment with training to ensure it behaves as expected.
-    - **Cross-Simulation Testing**: Test the policy in MuJoCo to verify its generalization across different environments.
+## Project Structure
 
-3. **Deployment**:
-
-    - **Model Export**: Export the trained policy from `*.pth` to a JIT-optimized `*.pt` format for efficiency deployment
-    - **Webots Deployment**: Use the SDK to deploy the model in Webots for final verification in simulation.
-    - **Physical Robot Deployment**: Deploy the model to the physical robot using the same Webots deployment script.
+```
+├── train.py                # Phase 1: Train base policy with privileged info
+├── train2.py               # Phase 2: Train adaptation module
+├── play.py                 # Evaluate policy in Isaac Gym
+├── play_mujoco.py          # Cross-simulation evaluation in MuJoCo
+├── export_model.py         # Export policy to TorchScript (.pt)
+├── export_encoder.py       # Export encoder separately
+├── extract_embeddings.py   # Extract and save latent embeddings
+├── envs/
+│   ├── t1.py               # T1 humanoid environment definition
+│   ├── T1.yaml             # Training configuration
+│   └── base_task.py        # Base environment (Isaac Gym integration)
+├── utils/
+│   ├── model.py            # RMA neural network architecture
+│   ├── runner.py           # Training and evaluation loop
+│   ├── buffer.py           # Experience replay buffer
+│   ├── recorder.py         # TensorBoard and W&B logging
+│   ├── terrain.py          # Terrain generation
+│   └── wrapper.py          # Observation stacking wrapper
+├── resources/
+│   └── T1/                 # URDF and MuJoCo robot models
+└── requirements.txt
+```
 
 ## Installation
 
-Follow these steps to set up your environment:
-
-1. Create an environment with Python 3.8:
+1. Create a conda environment with Python 3.8:
 
     ```sh
-    $ conda create --name <env_name> python=3.8
-    $ conda activate <env_name>
+    conda create --name booster python=3.8
+    conda activate booster
     ```
 
 2. Install PyTorch with CUDA support:
 
     ```sh
-    $ conda install numpy=1.21.6 pytorch=2.0 pytorch-cuda=11.8 -c pytorch -c nvidia
+    conda install numpy=1.21.6 pytorch=2.0 pytorch-cuda=11.8 -c pytorch -c nvidia
     ```
 
-3. Install Isaac Gym
+3. Install Isaac Gym:
 
-    Download Isaac Gym from [NVIDIA’s website](https://developer.nvidia.com/isaac-gym/download).
-
-    Extract and install:
+    Download Isaac Gym Preview 4 from [NVIDIA's website](https://developer.nvidia.com/isaac-gym/download), then:
 
     ```sh
-    $ tar -xzvf IsaacGym_Preview_4_Package.tar.gz
-    $ cd isaacgym/python
-    $ pip install -e .
+    tar -xzvf IsaacGym_Preview_4_Package.tar.gz
+    cd isaacgym/python
+    pip install -e .
     ```
 
-    Configure the environment to handle shared libraries, otherwise cannot found shared library of `libpython3.8`:
+    Configure shared libraries for the conda environment:
 
     ```sh
-    $ cd $CONDA_PREFIX
-    $ mkdir -p ./etc/conda/activate.d
-    $ vim ./etc/conda/activate.d/env_vars.sh  # Add the following line
-    export OLD_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib
-    $ mkdir -p ./etc/conda/deactivate.d
-    $ vim ./etc/conda/deactivate.d/env_vars.sh  # Add the following line
-    export LD_LIBRARY_PATH=${OLD_LD_LIBRARY_PATH}
-    unset OLD_LD_LIBRARY_PATH
+    cd $CONDA_PREFIX
+    mkdir -p ./etc/conda/activate.d
+    echo 'export OLD_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}' >> ./etc/conda/activate.d/env_vars.sh
+    echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib' >> ./etc/conda/activate.d/env_vars.sh
+    mkdir -p ./etc/conda/deactivate.d
+    echo 'export LD_LIBRARY_PATH=${OLD_LD_LIBRARY_PATH}' >> ./etc/conda/deactivate.d/env_vars.sh
+    echo 'unset OLD_LD_LIBRARY_PATH' >> ./etc/conda/deactivate.d/env_vars.sh
     ```
 
- 4. Install Python dependencies:
+4. Install dependencies:
 
     ```sh
-    $ pip install -r requirements.txt
+    pip install -r requirements.txt
     ```
 
 ## Usage
 
-### 1. Training
-
-To start training a policy, run the following command:
+### Phase 1: Train Base Policy
 
 ```sh
-$ python train.py --task=T1
+python train.py --task=T1
 ```
 
-Training logs and saved models will be stored in `logs/<date-time>/`.
+This trains the expert policy with access to privileged environment parameters. Models and logs are saved to `logs/<date-time>/`.
 
-#### Configurations
-
-Training settings are loaded from `envs/<task>.yaml`. You can also override config values using command-line arguments:
-
-- `--checkpoint`: Path of the model checkpoint to load (set to `-1` to use the most recent model).
-- `--num_envs`: Number of environments to create.
-- `--headless`: Run headless without creating a viewer window.
-- `--sim_device`: Device for physics simulation (e.g., `cuda:0`, `cpu`). 
-- `--rl_device`: Device for the RL algorithm (e.g., `cuda:0`, `cpu`). 
-- `--seed`: Random seed.
-- `--max_iterations`: Maximum number of training iterations.
-
-To add a new task, create a config file in `envs/` and register the environment in `envs/__init__.py`.
-
-#### Progress Tracking
-
-To visualize training progress with [TensorBoard](https://www.tensorflow.org/tensorboard), run:
+### Phase 2: Train Adaptation Module
 
 ```sh
-$ tensorboard --logdir logs
+python train2.py --task=T1 --encoder=-1
 ```
 
-To use [Weights & Biases](https://wandb.ai/) for tracking, log in first:
+Loads the Phase 1 checkpoint (use `-1` for latest) and trains the adaptation module to regress latent embeddings from observation history.
+
+### Evaluation
+
+**Isaac Gym** (same simulator as training):
+```sh
+python play.py --task=T1 --checkpoint=-1
+```
+
+**MuJoCo** (cross-simulation generalization):
+```sh
+python play_mujoco.py --task=T1 --checkpoint=-1
+```
+
+### Export Model
 
 ```sh
-$ wandb login
+python export_model.py --task=T1 --checkpoint=-1
 ```
 
-You can disable W&B tracking by setting `use_wandb` to `false` in the config file.
+### Common Arguments
 
----
+| Argument | Description |
+|---|---|
+| `--task` | Task name (default: `T1`) |
+| `--checkpoint` | Model path or `-1` for latest |
+| `--encoder` | Phase 1 checkpoint for Phase 2 training |
+| `--num_envs` | Number of parallel environments |
+| `--sim_device` | Physics simulation device (e.g. `cuda:0`) |
+| `--rl_device` | RL algorithm device (e.g. `cuda:0`) |
+| `--headless` | Run without viewer window |
+| `--seed` | Random seed |
+| `--max_iterations` | Maximum training iterations |
 
-### 2. Playing
+### Progress Tracking
 
-#### In-Simulation Testing
-
-To test the trained policy in Isaac Gym, run:
-
+TensorBoard:
 ```sh
-$ python play.py --task=T1 --checkpoint=-1
+tensorboard --logdir logs
 ```
 
-Videos of the evaluation are automatically saved in `videos/<date-time>.mp4`. You can disable video recording by setting `record_video` to `false` in the config file.
-
-#### Cross-Simulation Testing
-
-To test the policy in MuJoCo, run:
-
+Weights & Biases:
 ```sh
-$ python play_mujoco.py --task=T1 --checkpoint=-1
+wandb login
 ```
 
----
+W&B can be disabled by setting `use_wandb: false` in `envs/T1.yaml`.
 
-### 3. Deployment
+## Results
 
-To deploy a trained policy through the Booster Robotics SDK in simulation or in the real world, export the model using:
+### Training Curves
 
-```sh
-$ python export_model.py --task=T1 --checkpoint=-1
-```
+<!-- Replace with your reward curve figure -->
+![Reward Curves](figs/reward.png)
 
-After exporting the model, follow the steps in [Deploy on Booster Robot](deploy/README.md) to complete the deployment process.
+| Policy | Asymptotic Reward |
+|---|---|
+| Vanilla Booster (baseline) | ~40 |
+| Expert (Phase 1, privileged) | ~55 |
+| Student (Phase 2, adaptive) | ~65 |
+
+The Student policy outperforms even the Expert, which we attribute to the regularization effect of the adaptation information bottleneck filtering out high-frequency noise in the privileged state space.
+
+### Embedding Analysis
+
+<!-- Replace with your t-SNE figure -->
+![t-SNE Embedding Analysis](figs/embedding_analysis_kde.png)
+
+t-SNE visualization confirms that the adaptation module learns a faithful representation of the environment parameters. Predicted embeddings (from proprioceptive history) closely overlap with target embeddings (from privileged encoder), achieving a mean cosine similarity of **0.807**.
+
+## Acknowledgements
+
+This project is built on top of [Booster Gym](https://github.com/BoosterRobotics/booster_gym) by Booster Robotics. The RMA architecture follows [Kumar et al., 2021](https://arxiv.org/abs/2107.04034).
