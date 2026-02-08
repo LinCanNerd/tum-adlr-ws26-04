@@ -187,6 +187,7 @@ class AdaptationRunner:
             for n in range(self.cfg["runner"]["horizon_length"]):
                 mirrored_obs = self.env.mirror_obs(obs)
                 mirrored_privileged_obs = self.env.mirror_priv(privileged_obs)
+                mirrored_stacked_obs = self.env.mirror_obs(stacked_obs)
 
                 self.buffer.update_data("obses", n, obs)
                 self.buffer.update_data("privileged_obses", n, privileged_obs)
@@ -203,7 +204,7 @@ class AdaptationRunner:
                     mirrored_obs = self.env.mirror_obs(obs)
                     mirrored_privileged_obs = self.env.mirror_priv(privileged_obs)
                     mirrored_dist, _ = self.model.act(mirrored_obs, privileged_obs=mirrored_privileged_obs)
-                    act = 0.5 * (dist.loc + self.env.mirror_act(mirrored_dist.loc))
+                    act = 0.5 * (dist.loc + self.env.mirror_act(mirrored_dist.loc)) + dist.scale * torch.randn_like(dist.loc)
                 
                 # Step environment
                 obs, rew, done, infos = self.env.step(act)
@@ -227,6 +228,7 @@ class AdaptationRunner:
             # Train adaptation module
             mean_adapt_loss = 0.0
             mean_cosine_sim = 0.0
+            mean_symmetric_loss = 0.0
             
             for _ in range(self.cfg["runner"]["mini_epochs"]):
                 # Get target embedding from frozen privileged encoder
@@ -234,20 +236,26 @@ class AdaptationRunner:
                     _, target_embedding = self.model.act(self.buffer["obses"], privileged_obs=self.buffer["privileged_obses"])
                     _, mirrored_target_embedding = self.model.act(self.buffer["mirrored_obses"], privileged_obs=self.buffer["mirrored_privileged_obses"])
                 
-                _, predicted_embedding = self.model.act(self.buffer["obses"], stacked_obs=self.buffer["stacked_obses"])
-                _, mirrored_predicted_embedding = self.model.act(self.buffer["mirrored_obses"], stacked_obs=self.buffer["mirrored_stacked_obses"])
-                
+                dist, predicted_embedding = self.model.act(self.buffer["obses"], stacked_obs=self.buffer["stacked_obses"])
+                mirrored_dist, mirrored_predicted_embedding = self.model.act(self.buffer["mirrored_obses"], stacked_obs=self.buffer["mirrored_stacked_obses"])
+                mirrored_act = self.env.mirror_act(mirrored_dist.loc)
+
                 # MSE loss
                 adapt_loss = F.mse_loss(predicted_embedding, target_embedding)
                 mirrored_adapt_loss = F.mse_loss(mirrored_predicted_embedding, mirrored_target_embedding)
-                tot_loss = (adapt_loss + mirrored_adapt_loss)/2
+                
+                symmetric_loss = F.mse_loss(dist.loc, mirrored_act)
+                tot_adapt_loss = (adapt_loss + mirrored_adapt_loss)/2
+
+                tot_loss = symmetric_loss + tot_adapt_loss
 
                 self.optimizer.zero_grad()
                 tot_loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.model.adapt_parameters(), 1.0)
                 self.optimizer.step()
                 
-                mean_adapt_loss += tot_loss.item()
+                mean_adapt_loss += tot_adapt_loss.item()
+                mean_symmetric_loss += symmetric_loss.item()
                 
                 with torch.no_grad():
                     cosine_sim = F.cosine_similarity(
@@ -259,11 +267,13 @@ class AdaptationRunner:
             
             mean_adapt_loss /= self.cfg["runner"]["mini_epochs"]
             mean_cosine_sim /= self.cfg["runner"]["mini_epochs"]
+            mean_symmetric_loss /= self.cfg["runner"]["mini_epochs"]
                 
             # Record statistics
             self.recorder.record_statistics(
                 {
                     "adapt/loss": mean_adapt_loss,
+                    "adapt/symmetric_loss": mean_symmetric_loss,
                     "adapt/cosine_sim": mean_cosine_sim,
                     "adapt/lr": self.learning_rate,
                     "curriculum/mean_lin_vel_level": self.env.mean_lin_vel_level,

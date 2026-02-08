@@ -29,20 +29,49 @@ class RMA(torch.nn.Module):
             torch.nn.ELU(),
             torch.nn.Linear(num_embedding, num_embedding),
         )
+        # Convolutional adaptation module to preserve temporal structure
+        # Using smaller filters (64, 32) to reduce memory with large batch sizes
+        # Input shape: (batch, num_stack, num_obs) -> treat as (batch, num_obs, num_stack)
         self.adaptation_module = torch.nn.Sequential(
-            torch.nn.Linear(num_obs * obs_stacking, 1024),
+            # Transpose will happen in forward pass: (batch, num_stack, num_obs) -> (batch, num_obs, num_stack)
+            torch.nn.Conv1d(num_obs, 32, kernel_size=3, padding=1),
             torch.nn.ELU(),
-            torch.nn.Linear(1024, 128),
+            torch.nn.Conv1d(32, 16, kernel_size=3, padding=1),
             torch.nn.ELU(),
-            torch.nn.Linear(128, num_embedding),
+            # Global average pooling over temporal dimension
+            torch.nn.AdaptiveAvgPool1d(1),
+            torch.nn.Flatten(),
+            torch.nn.Linear(16, num_embedding),
         )
+        self.num_obs = num_obs
+        self.obs_stacking = obs_stacking
         self.logstd = torch.nn.parameter.Parameter(torch.full((1, num_act), fill_value=-2.0), requires_grad=True)
 
     def act(self, obs, privileged_obs = None, stacked_obs = None):
         if privileged_obs is not None:
             embedding = self.privileged_encoder(privileged_obs)
         elif stacked_obs is not None:
-            embedding = self.adaptation_module(stacked_obs.flatten(start_dim=-2))
+            # Handle 4D input from buffer: [H, N, stack, obs] -> [H*N, stack, obs]
+            original_shape = None
+            if stacked_obs.dim() == 4:
+                original_shape = stacked_obs.shape[:2]  # Save (H, N) for reshaping back
+                batch_shape = stacked_obs.shape[0] * stacked_obs.shape[1]
+                stacked_obs = stacked_obs.view(batch_shape, stacked_obs.shape[2], stacked_obs.shape[3])
+
+            # After reshape: [batch, dim1, dim2]
+            # We need [batch, num_obs, num_stack] for Conv1d (channels, sequence_length)
+            # If shape is [batch, num_obs, num_stack], keep as is
+            # If shape is [batch, num_stack, num_obs], transpose
+            # Check: if dim2 (last dimension) matches num_obs, then we have [batch, num_stack, num_obs] -> need transpose
+            if stacked_obs.shape[-1] == self.num_obs:
+                # Currently [batch, num_stack, num_obs] -> transpose to [batch, num_obs, num_stack]
+                stacked_obs = stacked_obs.transpose(-2, -1)
+
+            embedding = self.adaptation_module(stacked_obs)
+
+            # Reshape embedding back to 3D if input was 4D: [H*N, emb] -> [H, N, emb]
+            if original_shape is not None:
+                embedding = embedding.view(original_shape[0], original_shape[1], -1)
         act_input = torch.cat((obs, embedding), dim=-1)
         action_mean = self.actor(act_input)
         action_std = torch.exp(self.logstd).expand_as(action_mean)
